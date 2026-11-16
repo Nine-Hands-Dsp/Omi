@@ -75,7 +75,7 @@ public:
 
     static constexpr int numBendSteps = 9;
     static int bendSemis (int idx) { static const int b[numBendSteps] = { 0, 1, 2, 3, 4, 5, 7, 12, 24 }; return b[juce::jlimit (0, numBendSteps - 1, idx)]; }
-    static juce::String bendText (int idx) { const int b = bendSemis (idx); return b == 0 ? juce::String ("CHROMA") : "\xc2\xb1" + juce::String (b); }
+    static juce::String bendText (int idx) { const int b = bendSemis (idx); return b == 0 ? juce::String ("CHROMA") : juce::String (juce::CharPointer_UTF8 ("\xc2\xb1")) + juce::String (b); }
     static juce::StringArray feelNames()   { return { "Fast", "Normal", "Stable" }; }
     static juce::StringArray lowestNames() { return { "E2  (6 strings)", "B1  (7 strings)", "G1  (7 strings in G)", "F#1  (8 strings)", "E1  (8 strings, drop E)", "G#0  (very low tunings)" }; }
     static constexpr int numLowest = 6;
@@ -109,6 +109,7 @@ public:
     // REAPER : creation de la piste d'instrument qui recoit le MIDI d'Omi
     omi::ReaperBridge reaperBridge;
     bool restoredFromState = false;
+    int pollTicks = 0;
     int autoTrackTicks = 75;          // ~1,25 s apres l'insertion (timer a 60 Hz)
    #if JucePlugin_Build_VST3
     struct Vst3Ext : juce::VST3ClientExtensions

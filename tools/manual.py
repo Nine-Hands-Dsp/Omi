@@ -15,7 +15,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHOTS, OUT = sys.argv[1], sys.argv[2]
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 TMP = os.path.join(ROOT, "tools", "manual_assets"); os.makedirs(TMP, exist_ok=True)
 FONTS = os.path.join(ROOT, "assets", "fonts")
 for n, f in (("Pop", "Poppins-Regular"), ("PopL", "Poppins-Light"), ("PopM", "Poppins-Medium"), ("PopB", "Poppins-Bold"),
@@ -142,7 +142,7 @@ T = {
  inst_t="2. Installation",
  inst=[("Windows", "Cliquez sur le bouton <b>Télécharger Windows</b> de la page GitHub Nine-Hands-Dsp/omi (il donne toujours la dernière version), décompressez <b>Omi-VST3-Windows.zip</b> et copiez le dossier <b>Omi.vst3</b> dans <b>C:\\Program Files\\Common Files\\VST3</b>."),
        ("macOS", "Cliquez sur <b>Télécharger macOS</b>, décompressez <b>Omi-VST3-macOS.zip</b> et copiez <b>Omi.vst3</b> dans <b>~/Bibliothèque/Audio/Plug-Ins/VST3</b>. Si macOS le bloque, tapez <b>xattr -cr ~/Library/Audio/Plug-Ins/VST3/Omi.vst3</b> dans le Terminal. Le binaire est universel (Apple Silicon et Intel)."),
-       ("Reaper : brancher Omi sur un VST de basse", "Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <b>Re-scan</b> ; le plugin apparaît sous le nom <b>Omi (NINE HANDS | DSP)</b>. Mettez Omi en tête de la piste guitare : environ une seconde après, Omi crée <b>d'office</b> juste en dessous une piste « Omi - MIDI » qui reçoit son MIDI (Audio : None, MIDI : All → All) et ouvre le navigateur d'effets de REAPER. Il ne reste qu'à choisir le VST de basse ; les fois suivantes, la piste est créée directement avec le dernier instrument utilisé. Rien n'est créé quand un projet est rechargé. Un <b>clic sur l'écran</b> d'Omi ouvre le même menu : créer une autre piste (<b>Create MIDI track...</b>), ouvrir l'instrument d'une piste qui reçoit déjà le MIDI d'Omi, ou décocher <b>Create the MIDI track automatically when Omi is inserted</b>. Ctrl+Z annule la création."),
+       ("Reaper : brancher Omi sur un VST de basse", "Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <b>Re-scan</b> ; le plugin apparaît sous le nom <b>Omi (NINE HANDS | DSP)</b>. Mettez Omi en tête de la piste guitare : environ une seconde après, REAPER ouvre sa fenêtre <b>Insert virtual instrument on new track</b>. Choisissez votre VST de basse : la piste est créée juste sous celle d'Omi, aussitôt reliée à son MIDI (Audio : None, MIDI : All → All) et nommée « Omi - &lt;instrument&gt; ». Rien n'est créé quand un projet est rechargé. Un <b>clic sur l'écran</b> d'Omi ouvre le même menu : créer une autre piste (<b>Create MIDI track + choose instrument...</b>), la recréer directement avec le dernier instrument utilisé (<b>Create MIDI track with &lt;instrument&gt;</b>), ouvrir l'instrument d'une piste déjà reliée, ou décocher <b>Create the MIDI track automatically when Omi is inserted</b>. Ctrl+Z annule. Si la fenêtre de choix n'apparaît pas, regardez vos autres écrans : REAPER la rouvre là où elle était la dernière fois."),
        ("À la main", "Bouton <b>ROUTE</b> de la piste de l'instrument &gt; <b>Add new receive</b> &gt; piste guitare, réglé sur <b>Audio : None</b> et <b>MIDI : All → All</b>. Variante : placez le VST de basse juste après Omi sur la piste guitare (le MIDI d'Omi descend la chaîne d'effets) et choisissez clic droit &gt; <b>Guitar audio</b> &gt; <b>Mute</b> pour n'entendre que l'instrument.")],
  ov_t="3. Vue d'ensemble de l'interface",
  ov_rows=[["#", "Commande", "Rôle"],

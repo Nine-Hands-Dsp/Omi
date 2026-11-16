@@ -24,12 +24,13 @@ virtuel (VST de basse, synthé…) dans Reaper. Monophonique, pensé pour les 7 
 ## Dans Reaper
 
 1. Piste **guitare** : insérer Omi en premier (il lui faut le son direct de la guitare).
-2. **À l'insertion d'Omi**, la piste MIDI est créée d'office (environ une seconde après) : Omi crée juste en dessous une piste « Omi - MIDI »
-   qui reçoit son MIDI (receive **Audio : None**, **MIDI : All → All**) et ouvre le navigateur d'effets de REAPER : il ne reste
-   qu'à choisir le VST d'instrument (basse, synthé...). Les fois suivantes, la piste est créée directement avec le dernier
-   instrument utilisé. Rien n'est créé quand un projet est rechargé. Pour une piste de plus ou pour désactiver la création
-   d'office : **clic sur l'écran d'Omi** (*Create MIDI track...*, *Create the MIDI track automatically when Omi is inserted*). Les pistes qui reçoivent déjà le MIDI d'Omi sont listées
-   dans ce menu (clic = ouvrir l'instrument). Annulable en un Ctrl+Z. (Aussi au clic droit sur la pédale.)
+2. **À l'insertion d'Omi**, environ une seconde après, REAPER ouvre sa fenêtre **Insert virtual instrument on new track** :
+   choisir le VST d'instrument (basse, synthé...). La piste créée juste sous celle d'Omi est aussitôt reliée à son MIDI
+   (receive **Audio : None**, **MIDI : All → All**, armement retiré) et nommée « Omi - <instrument> ». Rien n'est créé quand
+   un projet est rechargé. **Clic sur l'écran d'Omi** : créer une autre piste (*Create MIDI track + choose instrument...*),
+   la recréer directement avec le dernier instrument (*Create MIDI track with <instrument>*), ouvrir l'instrument d'une
+   piste déjà reliée, ou désactiver la création d'office. (Cette fenêtre de REAPER s'ouvre là où REAPER l'a placée la
+   dernière fois, parfois sur un autre écran.)
 3. Jouer : la LED bleue s'allume à chaque note envoyée, l'écran montre la note jouée et la note MIDI envoyée.
 
 À la main : bouton **ROUTE** de la piste de l'instrument > *Add new receive* > piste guitare, **Audio : None**, **MIDI : All → All**.
@@ -96,6 +97,7 @@ Bass Mono · Bass Bend · 8 Strings Sub · Unison · Synth Lead · Octave Up Pad
 
 ## Versions
 
+- **1.0.3** (16 nov. 2026) : la fenêtre de choix d'instrument de REAPER s'ouvre bien (Insert virtual instrument on new track) et la piste créée est reliée automatiquement à Omi ; caractères spéciaux (·, ±, →) corrigés sous Windows.
 - **1.0.2** (16 nov. 2026) : détection plus rapide et plus sûre au passage d'une corde à l'autre (analyse limitée à ce qui suit l'attaque, fenêtre 0,8 période, attaques mieux repérées, Play feel Fast fiabilisé) ; plus de corde prise pour une plus grave (correction d'octave prudente, *Lowest note* G1 et E1, E1 par défaut) ; piste MIDI créée d'office à l'insertion d'Omi dans REAPER.
 - **1.0.1** (16 nov. 2026) : *Lowest MIDI note out* (B0 par défaut : les notes sous la tessiture du VST de basse remontent d'une octave) ; dans REAPER, création en un clic de la piste d'instrument qui reçoit le MIDI d'Omi (`ReaperBridge.cpp`, interface IReaperHostApplication).
 - **1.0.0** (16 nov. 2026) : première version.

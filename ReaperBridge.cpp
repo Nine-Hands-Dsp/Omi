@@ -1,5 +1,7 @@
 #include "ReaperBridge.h"
 #include "NineHandsFolder.h"
+#include <vector>
+#include <algorithm>
 
 #if JucePlugin_Build_VST3
  #include <juce_audio_processors/juce_audio_processors.h>
@@ -55,6 +57,14 @@ struct ReaperBridge::Impl
     void   (*Undo_EndBlock2) (void*, const char*, int) = nullptr;
     void   (*PreventUIRefresh) (int) = nullptr;
     void   (*TrackList_AdjustWindows) (bool) = nullptr;
+    int    (*CountTracks) (void*) = nullptr;
+    bool   (*SetMediaTrackInfo_Value) (void*, const char*, double) = nullptr;
+
+    // choix de l'instrument par la fenetre de REAPER (Insert > Virtual instrument on new track) : la piste qu'elle cree
+    // est reperee puis reliee a Omi (receive MIDI) des qu'elle apparait
+    std::vector<void*> before;
+    void* watchSrc = nullptr;
+    double watchUntil = 0.0;
 
     template <typename F> void get (F& f, const char* name)
     {
@@ -65,7 +75,8 @@ struct ReaperBridge::Impl
     {
         return host != nullptr && GetMediaTrackInfo_Value && InsertTrackAtIndex && GetTrack && GetSetMediaTrackInfo_String
             && CreateTrackSend && SetTrackSendInfo_Value && GetTrackNumSends && GetSetTrackSendInfo && TrackFX_AddByName
-            && TrackFX_GetCount && TrackFX_GetFXName && TrackFX_Show && SetOnlyTrackSelected && Main_OnCommand;
+            && TrackFX_GetCount && TrackFX_GetFXName && TrackFX_Show && SetOnlyTrackSelected && Main_OnCommand
+            && CountTracks && SetMediaTrackInfo_Value;
     }
     void* track() const   { return host != nullptr ? host->getReaperParent (1) : nullptr; }
     void* project() const { return host != nullptr ? host->getReaperParent (3) : nullptr; }
@@ -121,6 +132,8 @@ void ReaperBridge::setHost (void* p)
     m.get (m.Undo_EndBlock2, "Undo_EndBlock2");
     m.get (m.PreventUIRefresh, "PreventUIRefresh");
     m.get (m.TrackList_AdjustWindows, "TrackList_AdjustWindows");
+    m.get (m.CountTracks, "CountTracks");
+    m.get (m.SetMediaTrackInfo_Value, "SetMediaTrackInfo_Value");
    #else
     juce::ignoreUnused (p);
    #endif
@@ -166,39 +179,96 @@ bool ReaperBridge::createInstrumentTrack (const juce::String& instrument)
     const int srcNum = (int) m.GetMediaTrackInfo_Value (src, "IP_TRACKNUMBER");     // 1 = premiere piste
     if (srcNum <= 0) return false;
 
-    if (m.Undo_BeginBlock2) m.Undo_BeginBlock2 (proj);
-    if (m.PreventUIRefresh) m.PreventUIRefresh (1);
-    m.InsertTrackAtIndex (srcNum, true);                                             // juste sous la piste d'Omi
-    void* dst = m.GetTrack (proj, srcNum);
-    bool done = false;
-    if (dst != nullptr)
+    if (instrument.isNotEmpty())
     {
-        juce::String name = instrument.isNotEmpty() ? "Omi - " + instrument.fromFirstOccurrenceOf (": ", false, false).upToFirstOccurrenceOf (" (", false, false)
-                                                    : juce::String ("Omi - MIDI");
-        m.GetSetMediaTrackInfo_String (dst, "P_NAME", const_cast<char*> (name.toRawUTF8()), true);
-        const int s = m.CreateTrackSend (src, dst);
-        if (s >= 0)
+        // dernier instrument utilise : piste creee et reliee directement, sans fenetre de choix
+        if (m.Undo_BeginBlock2) m.Undo_BeginBlock2 (proj);
+        if (m.PreventUIRefresh) m.PreventUIRefresh (1);
+        m.InsertTrackAtIndex (srcNum, true);                                         // juste sous la piste d'Omi
+        void* dst = m.GetTrack (proj, srcNum);
+        bool loaded = false;
+        if (dst != nullptr)
         {
-            m.SetTrackSendInfo_Value (src, 0, s, "I_SRCCHAN", -1.0);    // Audio : None
-            m.SetTrackSendInfo_Value (src, 0, s, "I_MIDIFLAGS", 0.0);   // MIDI : All -> All
+            loaded = m.TrackFX_AddByName (dst, instrument.toRawUTF8(), false, -1) >= 0 && m.TrackFX_GetCount (dst) > 0;
+            if (loaded) wire (src, dst);
+            else        m.GetSetMediaTrackInfo_String (dst, "P_NAME", const_cast<char*> ("Omi - MIDI"), true);
         }
-        if (instrument.isNotEmpty()) m.TrackFX_AddByName (dst, instrument.toRawUTF8(), false, -1);
-        done = true;
+        if (m.PreventUIRefresh) m.PreventUIRefresh (-1);
+        if (m.TrackList_AdjustWindows) m.TrackList_AdjustWindows (false);
+        if (m.Undo_EndBlock2) m.Undo_EndBlock2 (proj, "Omi: create MIDI instrument track", -1);
+        if (loaded) { m.SetOnlyTrackSelected (dst); m.TrackFX_Show (dst, 0, 3); return true; }
+        if (dst != nullptr)
+        {
+            // instrument introuvable : piste vide reliee, fenetre de choix de REAPER sur cette piste
+            wire (src, dst);
+            m.SetOnlyTrackSelected (dst);
+            m.TrackFX_Show (dst, 0, 1);
+            return true;
+        }
+        return false;
     }
-    if (m.PreventUIRefresh) m.PreventUIRefresh (-1);
-    if (m.TrackList_AdjustWindows) m.TrackList_AdjustWindows (false);
-    if (m.Undo_EndBlock2) m.Undo_EndBlock2 (proj, "Omi: create MIDI instrument track", -1);
 
-    if (done)
-    {
-        m.SetOnlyTrackSelected (dst);
-        if (m.TrackFX_GetCount (dst) > 0) m.TrackFX_Show (dst, 0, 3);    // instrument charge : sa fenetre
-        else                              m.TrackFX_Show (dst, 0, 1);     // chaine vide : fenetre FX de la piste, REAPER y ouvre le navigateur d'effets
-    }
-    return done;
+    // choix de l'instrument : fenetre de REAPER « Insert virtual instrument on new track » (sous la piste d'Omi) ;
+    // la piste qu'elle cree est reliee a Omi des qu'elle apparait (poll(), appele par le timer du plugin)
+    m.before.clear();
+    const int n = m.CountTracks (proj);
+    for (int i = 0; i < n; ++i) m.before.push_back (m.GetTrack (proj, i));
+    m.watchSrc = src;
+    m.watchUntil = juce::Time::getMillisecondCounterHiRes() + 180000.0;
+    m.SetOnlyTrackSelected (src);
+    m.Main_OnCommand (40701, 0);          // Insert > Virtual instrument on new track...
+    poll();                               // la fenetre est modale : la piste existe deja si l'instrument a ete choisi
+    return true;
    #else
     juce::ignoreUnused (instrument);
     return false;
+   #endif
+}
+
+void ReaperBridge::wire (void* src, void* dst)
+{
+   #if JucePlugin_Build_VST3
+    auto& m = *impl;
+    const int s = m.CreateTrackSend (src, dst);
+    if (s >= 0)
+    {
+        m.SetTrackSendInfo_Value (src, 0, s, "I_SRCCHAN", -1.0);    // Audio : None
+        m.SetTrackSendInfo_Value (src, 0, s, "I_MIDIFLAGS", 0.0);   // MIDI : All -> All
+    }
+    m.SetMediaTrackInfo_Value (dst, "I_RECARM", 0.0);               // l'instrument ne joue que le MIDI d'Omi
+    juce::String name ("Omi - MIDI");
+    if (m.TrackFX_GetCount (dst) > 0)
+    {
+        const auto fx = m.fxName (dst, 0);
+        setLastInstrument (fx);
+        name = "Omi - " + fx.fromFirstOccurrenceOf (": ", false, false).upToFirstOccurrenceOf (" (", false, false);
+    }
+    m.GetSetMediaTrackInfo_String (dst, "P_NAME", const_cast<char*> (name.toRawUTF8()), true);
+   #else
+    juce::ignoreUnused (src, dst);
+   #endif
+}
+
+void ReaperBridge::poll()
+{
+   #if JucePlugin_Build_VST3
+    auto& m = *impl;
+    if (m.watchSrc == nullptr) return;
+    if (! available() || juce::Time::getMillisecondCounterHiRes() > m.watchUntil) { m.watchSrc = nullptr; return; }
+    void* proj = m.project();
+    const int n = m.CountTracks (proj);
+    for (int i = 0; i < n; ++i)
+    {
+        void* t = m.GetTrack (proj, i);
+        if (t == nullptr || t == m.watchSrc || std::find (m.before.begin(), m.before.end(), t) != m.before.end()) continue;
+        if (m.TrackFX_GetCount (t) <= 0) continue;               // dossier d'une sortie multiple : on prend la piste de l'instrument
+        if (m.Undo_BeginBlock2) m.Undo_BeginBlock2 (proj);
+        wire (m.watchSrc, t);
+        if (m.TrackList_AdjustWindows) m.TrackList_AdjustWindows (false);
+        if (m.Undo_EndBlock2) m.Undo_EndBlock2 (proj, "Omi: route MIDI to instrument", -1);
+        m.watchSrc = nullptr;
+        return;
+    }
    #endif
 }
 

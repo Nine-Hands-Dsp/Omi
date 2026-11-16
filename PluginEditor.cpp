@@ -221,7 +221,7 @@ String OmiAudioProcessorEditor::buildStatusLine() const
     const float v = proc.raw (valueIds[i]);
     if (id == "sens")    return "sens  " + String (roundToInt (v)) + " dB";
     if (id == "dyn")     return v < 0.05f ? String ("dyn  fixed velocity") : "dyn  " + String (roundToInt (v * 10.0f)) + " %";
-    if (id == "bend")    { const int b = OmiAudioProcessor::bendSemis (roundToInt (v)); return b == 0 ? String ("bend  chromatic") : "bend range  \xc2\xb1" + String (b); }
+    if (id == "bend")    { const int b = OmiAudioProcessor::bendSemis (roundToInt (v)); return b == 0 ? String ("bend  chromatic") : juce::String (juce::CharPointer_UTF8 ("bend range  \xc2\xb1")) + String (b); }
     if (id == "trans")   { const int t = roundToInt (v); return "transpose  " + String (t > 0 ? "+" : "") + String (t) + " st"; }
     if (id == "feel")    return "play feel  " + OmiAudioProcessor::feelNames()[jlimit (0, 2, roundToInt (v))].toLowerCase();
     if (id == "channel") return "midi channel  " + String (roundToInt (v));
@@ -287,7 +287,7 @@ void OmiAudioProcessorEditor::timerCallback()
     }
     else if (lt >= 0)
     {
-        learnLine = "MIDI LEARN \xc2\xb7 " + String (OmiAudioProcessor::learnDef (lt).name);
+        learnLine = juce::String (juce::CharPointer_UTF8 ("MIDI LEARN \xc2\xb7 ")) + String (OmiAudioProcessor::learnDef (lt).name);
         learnLineUntil = now + 200.0;
         statusUntil = jmax (statusUntil, now + 200.0);
     }
@@ -328,7 +328,7 @@ void OmiAudioProcessorEditor::timerCallback()
         hintShown = true;
         if (proc.reaperBridge.receivers().isEmpty())
         {
-            learnLine = "CLICK THE SCREEN \xc2\xb7 CREATE MIDI TRACK";
+            learnLine = juce::String (juce::CharPointer_UTF8 ("CLICK THE SCREEN \xc2\xb7 CREATE MIDI TRACK"));
             learnLineUntil = now + 6000.0;
             statusUntil = jmax (statusUntil, learnLineUntil);
         }
@@ -433,11 +433,11 @@ void OmiAudioProcessorEditor::drawScreen (Graphics& g)
     else if (s.outNote >= 0)
     {
         text (OmiAudioProcessor::noteName (s.outNote), rx - 200.0f, r.getY() + 36.0f, 200.0f, 48.0f, Justification::centredRight, scrCyan, font (1, 46.0f));
-        text ("NOTE " + String (s.outNote) + " \xc2\xb7 VEL " + String (s.vel), rx - 240.0f, r.getY() + 82.0f, 240.0f, 18.0f, Justification::centredRight, scrGrey, font (0, 15.0f));
+        text ("NOTE " + String (s.outNote) + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 VEL ")) + String (s.vel), rx - 240.0f, r.getY() + 82.0f, 240.0f, 18.0f, Justification::centredRight, scrGrey, font (0, 15.0f));
     }
     else
         text ("--", rx - 200.0f, r.getY() + 36.0f, 200.0f, 48.0f, Justification::centredRight, off, font (1, 46.0f));
-    text (OmiAudioProcessor::bendSemis (s.bendIdx) == 0 ? String ("CHROMA") : "BEND \xc2\xb1" + String (OmiAudioProcessor::bendSemis (s.bendIdx)),
+    text (OmiAudioProcessor::bendSemis (s.bendIdx) == 0 ? String ("CHROMA") : juce::String (juce::CharPointer_UTF8 ("BEND \xc2\xb1")) + String (OmiAudioProcessor::bendSemis (s.bendIdx)),
           rx - 200.0f, r.getY() + 100.0f, 200.0f, 18.0f, Justification::centredRight, scrGrey, font (0, 15.0f));
 
     // justesse : point sur une echelle de -50 a +50 cents
@@ -796,7 +796,7 @@ void OmiAudioProcessorEditor::addReaperItems (PopupMenu& menu)
     {
         const auto& t = recv.getReference (i);
         if (t.instrument.isNotEmpty()) omi::ReaperBridge::setLastInstrument (t.instrument);
-        menu.addItem (400 + i, "MIDI \xe2\x86\x92 " + t.trackName + (t.instrument.isNotEmpty() ? "  (" + t.instrument.fromFirstOccurrenceOf (": ", false, false) + ")" : String ("  (no instrument)")));
+        menu.addItem (400 + i, juce::String (juce::CharPointer_UTF8 ("MIDI \xe2\x86\x92 ")) + t.trackName + (t.instrument.isNotEmpty() ? "  (" + t.instrument.fromFirstOccurrenceOf (": ", false, false) + ")" : String ("  (no instrument)")));
     }
     menu.addItem (390, recv.isEmpty() ? "Create MIDI track + choose instrument..." : "Create another MIDI track + choose instrument...");
     const auto last = omi::ReaperBridge::lastInstrument();

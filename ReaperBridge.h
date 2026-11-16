@@ -26,6 +26,8 @@ public:
     bool createInstrumentTrack (const juce::String& instrument);
     // ouvre la fenetre de l'instrument de la n-ieme piste receptrice
     void showReceiver (int index);
+    // a appeler regulierement (timer) : relie a Omi la piste creee par la fenetre de choix d'instrument de REAPER
+    void poll();
 
     static juce::String lastInstrument();
     static bool autoCreate();                      // creer la piste d'office a l'insertion d'Omi (reglage commun, oui par defaut)
@@ -33,6 +35,7 @@ public:
     static void setLastInstrument (const juce::String& name);
 
 private:
+    void wire (void* src, void* dst);
     struct Impl;
     std::unique_ptr<Impl> impl;
 };
