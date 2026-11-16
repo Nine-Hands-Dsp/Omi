@@ -48,6 +48,18 @@ LED = (CX, 708.0)
 FS = (CX, 804.0)
 LOGO_C, LOGO_W = (CX, 896.0), 196.0
 JACK_Y = PY0 + 0.62 * PH
+ART_Y = 664.0
+# variantes de disposition (OMI_LAYOUT = JSON) : ecran, potards, titre, pastille, motif, LED, footswitch
+_V = os.environ.get('OMI_LAYOUT')
+if _V:
+    _v = json.loads(_V)
+    SCREEN = (PX0 + 44.0, _v['scr'][0], PW - 88.0, _v['scr'][1])
+    KNOB_R = _v.get('kr', KNOB_R)
+    KNOBS = [(CX + dx, y, n, KNOB_R) for (dx, y, n) in _v['knobs']]
+    TITLE_Y, SUB_Y = _v['title'], _v['sub']
+    PRESET = (PRESET[0], _v['preset'], PRESET[2], PRESET[3])
+    ART_Y = _v.get('art')
+    LED = (CX, _v['led']); FS = (CX, _v['fs'])
 
 YY, XX = np.mgrid[0:H, 0:W].astype(np.float32)
 UX, UY = (XX + 0.5) / AS, (YY + 0.5) / AS
@@ -96,9 +108,9 @@ img = img * (1 - body[..., None]) + encl * body[..., None]
 
 # ------------------------------------------------------------------ 2. motif imprime : onde (IN, a droite) -> notes MIDI (OUT, a gauche)
 SS = 2
+if ART_Y is None: ART_Y = -1000.0
 art = np.zeros((H * SS, W * SS), np.uint8)
 K = AS * SS
-ART_Y = 664.0
 # onde amortie a droite : du bord droit vers le centre, epaisseur 3 unites
 xs = np.linspace(CX + 30, PX0 + PW - 8, 900)
 t = (PX0 + PW - xs) / (PW / 2)

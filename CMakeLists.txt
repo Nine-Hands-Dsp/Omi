@@ -6,7 +6,7 @@ if(APPLE)
   set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "" FORCE)
 endif()
 
-project(Omi VERSION 1.0.0)
+project(Omi VERSION 1.0.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -39,7 +39,7 @@ juce_add_plugin(Omi
   FORMATS VST3
   VST3_CATEGORIES Fx Analyzer
   PRODUCT_NAME "Omi"
-  VERSION 1.0.0
+  VERSION 1.0.1
   DESCRIPTION "Guitar to MIDI converter (monophonic, very low tunings) - single pedal format"
   IS_SYNTH FALSE
   NEEDS_MIDI_INPUT TRUE
@@ -48,7 +48,14 @@ juce_add_plugin(Omi
   EDITOR_WANTS_KEYBOARD_FOCUS FALSE
   COPY_PLUGIN_AFTER_BUILD FALSE)
 
-target_sources(Omi PRIVATE PluginProcessor.cpp PluginEditor.cpp)
+target_sources(Omi PRIVATE PluginProcessor.cpp PluginEditor.cpp ReaperBridge.cpp)
+# en-tetes du SDK VST3 fournis par JUCE (interface IReaperHostApplication de REAPER, ReaperBridge.cpp)
+if(JUCE_DIR AND EXISTS "${JUCE_DIR}/CMakeLists.txt")
+  set(OMI_JUCE_SRC "${JUCE_DIR}")
+else()
+  set(OMI_JUCE_SRC "${juce_SOURCE_DIR}")
+endif()
+target_include_directories(Omi PRIVATE "${OMI_JUCE_SRC}/modules/juce_audio_processors_headless/format_types/VST3_SDK")
 
 
 # verrou de taille de la fenetre du DAW (jamais sous 60 %, jamais au-dela de 150 %)

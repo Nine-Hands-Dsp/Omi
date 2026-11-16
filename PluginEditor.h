@@ -64,6 +64,10 @@ private:
     void visibilityChanged() override;
     void askRepaint (juce::Rectangle<int> r);
     void showContextMenu (int learnIdx = -1);
+    void addReaperItems (juce::PopupMenu& menu);
+    bool handleReaperItem (int r);
+    void showReaperMenu();
+    bool hintShown = false;
     void handleMidiMenu (int r);
     void showPresetMenu();
     void stepPreset (int delta);
@@ -114,7 +118,7 @@ private:
     float statusAlpha = 0.0f, drawnStatus = -1.0f;
     double statusUntil = 0.0;
     juce::String lastLine1, lastPreset;
-    float lastValues[8];
+    float lastValues[12];
     int lastPresetCounter = 0, lastMidiCount = 0, midiFlash = 0;
     int hoverZone = 0, drawnHover = -1;
     juce::String learnLine;

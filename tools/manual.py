@@ -15,7 +15,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHOTS, OUT = sys.argv[1], sys.argv[2]
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 TMP = os.path.join(ROOT, "tools", "manual_assets"); os.makedirs(TMP, exist_ok=True)
 FONTS = os.path.join(ROOT, "assets", "fonts")
 for n, f in (("Pop", "Poppins-Regular"), ("PopL", "Poppins-Light"), ("PopM", "Poppins-Medium"), ("PopB", "Poppins-Bold"),
@@ -142,14 +142,15 @@ T = {
  inst_t="2. Installation",
  inst=[("Windows", "Cliquez sur le bouton <b>Télécharger Windows</b> de la page GitHub Nine-Hands-Dsp/omi (il donne toujours la dernière version), décompressez <b>Omi-VST3-Windows.zip</b> et copiez le dossier <b>Omi.vst3</b> dans <b>C:\\Program Files\\Common Files\\VST3</b>."),
        ("macOS", "Cliquez sur <b>Télécharger macOS</b>, décompressez <b>Omi-VST3-macOS.zip</b> et copiez <b>Omi.vst3</b> dans <b>~/Bibliothèque/Audio/Plug-Ins/VST3</b>. Si macOS le bloque, tapez <b>xattr -cr ~/Library/Audio/Plug-Ins/VST3/Omi.vst3</b> dans le Terminal. Le binaire est universel (Apple Silicon et Intel)."),
-       ("Reaper : brancher Omi sur un VST de basse", "Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <b>Re-scan</b> ; le plugin apparaît sous le nom <b>Omi (NINE HANDS | DSP)</b>. Mettez Omi en tête de la piste guitare. Créez une piste avec votre VST de basse, ouvrez son bouton <b>ROUTE</b> &gt; <b>Add new receive</b> &gt; piste guitare, et réglez ce receive sur <b>Audio : None</b> et <b>MIDI : All → All</b>. Jouez : la LED bleue s'allume à chaque note envoyée. Variante : placez le VST de basse juste après Omi sur la piste guitare (le MIDI d'Omi descend la chaîne d'effets) et choisissez clic droit &gt; <b>Guitar audio</b> &gt; <b>Mute</b> pour n'entendre que l'instrument.")],
+       ("Reaper : brancher Omi sur un VST de basse", "Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <b>Re-scan</b> ; le plugin apparaît sous le nom <b>Omi (NINE HANDS | DSP)</b>. Mettez Omi en tête de la piste guitare, puis <b>cliquez sur son écran</b> &gt; <b>Create MIDI track + choose instrument...</b> : Omi crée juste en dessous une piste « Omi - MIDI » qui reçoit son MIDI (Audio : None, MIDI : All → All) et ouvre le navigateur d'effets de REAPER. Il ne reste qu'à choisir le VST de basse. La fois suivante, <b>Create MIDI track with &lt;instrument&gt;</b> recrée la piste directement avec le dernier instrument utilisé. Les pistes qui reçoivent déjà le MIDI d'Omi sont listées dans ce menu (clic = ouvrir l'instrument). Ctrl+Z annule la création. Le même menu est en tête du clic droit."),
+       ("À la main", "Bouton <b>ROUTE</b> de la piste de l'instrument &gt; <b>Add new receive</b> &gt; piste guitare, réglé sur <b>Audio : None</b> et <b>MIDI : All → All</b>. Variante : placez le VST de basse juste après Omi sur la piste guitare (le MIDI d'Omi descend la chaîne d'effets) et choisissez clic droit &gt; <b>Guitar audio</b> &gt; <b>Mute</b> pour n'entendre que l'instrument.")],
  ov_t="3. Vue d'ensemble de l'interface",
  ov_rows=[["#", "Commande", "Rôle"],
    ["1", "SENS", "Seuil de détection. Glisser vers le haut / le bas, molette, double-clic = valeur par défaut, clic droit = MIDI Learn (pour toutes les commandes)."],
    ["2", "DYN", "Réponse de la vélocité."],
    ["3", "BEND", "Notes franches (CHROMA) ou plage de pitch bend."],
    ["4", "TRANS", "Transposition."],
-   ["5", "Écran", "Note jouée, note MIDI envoyée, vélocité, vu-mètre et seuil."],
+   ["5", "Écran", "Note jouée, note MIDI envoyée, vélocité, vu-mètre et seuil. Clic : piste d'instrument REAPER."],
    ["6", "Presets / ligne d'état", "Une seule pastille : presets au repos, valeur du réglage en cours pendant un mouvement."],
    ["7", "LED", "Bleue tant qu'une note MIDI est envoyée."],
    ["8", "Footswitch", "MIDI actif / arrêt."],
@@ -167,6 +168,7 @@ T = {
      "<b>LED</b> : bleue tant qu'une note MIDI est tenue, en fondu ; la façade autour et le flanc de l'écrou du footswitch reçoivent sa lumière (clic droit &gt; <b>Glow intensity</b> : 25 / 50 / 75 / 100 %).",
      "<b>Play feel</b> (clic droit) : <b>Fast</b> confirme une nouvelle note sur 2 analyses (latence minimale), <b>Normal</b> sur 3, <b>Stable</b> sur 5 avec une analyse plus exigeante (le moins de fausses notes). Un saut d'octave demande toujours deux fois plus de confirmations.",
      "<b>Lowest note</b> (clic droit) : la note la plus grave suivie : E2 (6 cordes), B1 (7 cordes), F#1 (8 cordes) ou A0 (8 cordes, accordages très bas, réglage par défaut). Choisir la note de votre corde la plus grave limite encore les erreurs d'octave.",
+     "<b>Lowest MIDI note out</b> (clic droit) : la plupart des basses virtuelles s'arrêtent à B0 (basse 5 cordes) ou E1 (4 cordes). Une 8 cordes transposée de −12 descend plus bas (G#1 joué → G#0 envoyé) et le VST reste muet. Avec <b>B0</b> (par défaut) ou <b>E1</b>, toute note qui tomberait sous cette limite remonte d'une octave ; <b>A0</b> pour les instruments à tessiture étendue, <b>Off</b> pour envoyer toutes les notes telles quelles.",
      "<b>MIDI out channel</b> (clic droit) : canal 1 à 16. <b>Guitar audio</b> : Thru (la guitare continue de passer, par défaut) ou Mute (seul le MIDI sort)."],
  midi_t="6. MIDI entrant",
  midi_intro=["Les commandes d'Omi se pilotent depuis un contrôleur MIDI (footswitchs, pédales d'expression, potards). <b>Aucun CC n'est assigné d'office</b> : vous choisissez chacun avec le <b>MIDI Learn</b>. Les CC non assignés et les autres messages MIDI entrants passent tels quels vers l'instrument suivant."],

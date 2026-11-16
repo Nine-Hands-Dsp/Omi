@@ -96,6 +96,7 @@ AudioProcessorValueTreeState::ParameterLayout OmiAudioProcessor::createLayout()
     p.push_back (std::make_unique<AudioParameterInt> (ParameterID { "channel", 1 }, "MIDI Channel", 1, 16, 1));
     p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "lowest", 1 }, "Lowest Note", lowestNames(), 3));
     p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "thru", 1 }, "Guitar Audio", StringArray { "Thru", "Mute" }, 0));
+    p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "fold", 1 }, "Lowest MIDI Note Out", foldNames(), 1));
     return { p.begin(), p.end() };
 }
 
@@ -245,6 +246,7 @@ void OmiAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& mi
     s.feel      = jlimit (0, 2, roundToInt (rawAt (rFeel)));
     s.channel   = jlimit (1, 16, roundToInt (rawAt (rChannel)));
     s.lowestHz  = lowestHz (roundToInt (rawAt (rLowest)));
+    s.minOut    = foldNote (roundToInt (rawAt (rFold)));
     s.active    = rawAt (rActive) > 0.5f;
 
     // changement de canal : la note en cours est coupee sur l'ancien canal
@@ -319,7 +321,7 @@ File OmiAudioProcessor::getUserPresetFile()
              .getChildFile (nhd::folderName()).getChildFile ("Omi").getChildFile ("UserPresets.xml");
 }
 
-static const char* presetIds[] = { "sens", "dyn", "bend", "trans", "feel", "lowest" };
+static const char* presetIds[] = { "sens", "dyn", "bend", "trans", "feel", "lowest", "fold" };
 
 bool OmiAudioProcessor::saveUserPreset (int slot)
 {

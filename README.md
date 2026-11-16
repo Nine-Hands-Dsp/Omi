@@ -23,10 +23,19 @@ virtuel (VST de basse, synthé…) dans Reaper. Monophonique, pensé pour les 7 
 
 ## Dans Reaper
 
-1. Piste **guitare** : insérer Omi en premier (avant le noise gate et les saturations : il lui faut le son direct de la guitare).
-2. Piste **basse** : y mettre le VST de basse, armer la piste n'est pas nécessaire.
-3. Bouton **ROUTE** de la piste basse > *Add new receive* > piste guitare ; dans le receive : **Audio : None**, **MIDI : All → All**.
-4. Jouer : la LED bleue s'allume à chaque note envoyée, l'écran montre la note jouée et la note MIDI envoyée.
+1. Piste **guitare** : insérer Omi en premier (il lui faut le son direct de la guitare).
+2. **Cliquer sur l'écran d'Omi** > *Create MIDI track + choose instrument...* : Omi crée juste en dessous une piste « Omi - MIDI »
+   qui reçoit son MIDI (receive **Audio : None**, **MIDI : All → All**) et ouvre le navigateur d'effets de REAPER : il ne reste
+   qu'à choisir le VST d'instrument (basse, synthé...). La fois suivante, *Create MIDI track with <instrument>* recrée la piste
+   avec le dernier instrument utilisé, sans passer par le navigateur. Les pistes qui reçoivent déjà le MIDI d'Omi sont listées
+   dans ce menu (clic = ouvrir l'instrument). Annulable en un Ctrl+Z. (Aussi au clic droit sur la pédale.)
+3. Jouer : la LED bleue s'allume à chaque note envoyée, l'écran montre la note jouée et la note MIDI envoyée.
+
+À la main : bouton **ROUTE** de la piste de l'instrument > *Add new receive* > piste guitare, **Audio : None**, **MIDI : All → All**.
+
+**Tessiture du VST de basse** : la plupart des basses virtuelles s'arrêtent à B0 (basse 5 cordes) ou E1 (4 cordes). Une 8 cordes
+transposée de −12 descend plus bas (G#1 joué → G#0 envoyé) : clic droit > *Lowest MIDI note out* (par défaut **B0**) remonte d'une
+octave toute note qui tomberait sous cette limite, pour que le VST la joue. *Off* envoie toutes les notes telles quelles.
 
 Variante : mettre le VST de basse directement après Omi sur la piste guitare (le MIDI d'Omi descend la chaîne) ;
 clic droit > *Guitar audio* > *Mute* pour ne garder que l'instrument.
@@ -40,7 +49,8 @@ clic droit > *Guitar audio* > *Mute* pour ne garder que l'instrument.
 | **BEND** | CHROMA (notes franches, demi-ton par demi-ton) ou plage de pitch bend ±1, 2, 3, 4, 5, 7, 12, 24 (envoyée au VST en RPN 0) |
 | **TRANS** | Transposition −24 à +24 demi-tons (−12 = basse une octave sous la guitare) |
 | Footswitch | Marche / arrêt du MIDI (All Notes Off à l'arrêt : aucune note bloquée) |
-| Clic droit | Presets, *Play feel* (Fast / Normal / Stable), *Lowest note*, canal MIDI de sortie, *Guitar audio* (Thru / Mute), MIDI Learn, taille, Glow |
+| Écran (clic) | REAPER : créer la piste d'instrument qui reçoit le MIDI d'Omi, ouvrir l'instrument |
+| Clic droit | Piste MIDI (REAPER), presets, *Play feel* (Fast / Normal / Stable), *Lowest note*, canal MIDI de sortie, *Lowest MIDI note out* (Off / B0 / E1 / A0), *Guitar audio* (Thru / Mute), MIDI Learn, taille, Glow |
 
 ## Détection de hauteur (renforcée pour les accordages très graves)
 
@@ -77,10 +87,11 @@ Bass Mono · Bass Bend · 8 Strings Sub · Unison · Synth Lead · Octave Up Pad
 
 ## Fichiers
 
-- `OmiDSP.h` : suivi de hauteur et génération MIDI ; `PluginProcessor.*`, `PluginEditor.*`, `NHKnob.h`.
+- `OmiDSP.h` : suivi de hauteur et génération MIDI ; `PluginProcessor.*`, `PluginEditor.*`, `NHKnob.h` ; `ReaperBridge.*` : API de REAPER (piste d'instrument).
 - `tools/make_art.py` (+ `tools/photo_controls.py`) : visuel ; `tools/make_layout.py` : `Layout.h` et calques du repère.
 - `tools/render` : compile la vraie fenêtre sous Linux, exporte les captures et vérifie la chaîne audio → MIDI.
 
 ## Versions
 
+- **1.0.1** (16 nov. 2026) : *Lowest MIDI note out* (B0 par défaut : les notes sous la tessiture du VST de basse remontent d'une octave) ; dans REAPER, création en un clic de la piste d'instrument qui reçoit le MIDI d'Omi (`ReaperBridge.cpp`, interface IReaperHostApplication).
 - **1.0.0** (16 nov. 2026) : première version.

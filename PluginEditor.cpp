@@ -13,8 +13,8 @@ namespace
     const Colour panel (0xff060a12);        // fond de la pastille
     const Colour scrCyan (0xff5acdff), scrWhite (0xffebf4ff), scrGrey (0xff788ca5), scrDim (0xff1e2c3e);
 
-    const char* const valueIds[] = { "sens", "dyn", "bend", "trans", "active", "feel", "channel", "lowest", "thru" };
-    constexpr int numValueIds = 9;
+    const char* const valueIds[] = { "sens", "dyn", "bend", "trans", "active", "feel", "channel", "lowest", "thru", "fold" };
+    constexpr int numValueIds = 10;
     constexpr float meterLo = -72.0f, meterHi = -6.0f;
 }
 
@@ -226,6 +226,7 @@ String OmiAudioProcessorEditor::buildStatusLine() const
     if (id == "feel")    return "play feel  " + OmiAudioProcessor::feelNames()[jlimit (0, 2, roundToInt (v))].toLowerCase();
     if (id == "channel") return "midi channel  " + String (roundToInt (v));
     if (id == "lowest")  return "lowest note  " + OmiAudioProcessor::lowestNames()[jlimit (0, 3, roundToInt (v))].upToFirstOccurrenceOf (" ", false, false);
+    if (id == "fold")    { const int n = OmiAudioProcessor::foldNote (roundToInt (v)); return n < 0 ? String ("lowest midi note  free") : "lowest midi note  " + OmiAudioProcessor::noteName (n); }
     if (id == "thru")    return v > 0.5f ? "guitar audio muted" : "guitar audio thru";
     return v > 0.5f ? "midi on" : "bypass";
 }
@@ -319,6 +320,18 @@ void OmiAudioProcessorEditor::timerCallback()
         footswitch.ledLevel = ledLevel * glowAmt();
         askRepaint (scaled (layout::glowRect));
         footswitch.repaint();
+    }
+
+    // REAPER : aucune piste ne recoit encore le MIDI d'Omi -> indication une fois
+    if (! hintShown && isShowing() && proc.reaperBridge.available())
+    {
+        hintShown = true;
+        if (proc.reaperBridge.receivers().isEmpty())
+        {
+            learnLine = "CLICK THE SCREEN \xc2\xb7 CREATE MIDI TRACK";
+            learnLineUntil = now + 6000.0;
+            statusUntil = jmax (statusUntil, learnLineUntil);
+        }
     }
 
     // ecran
@@ -580,7 +593,8 @@ void OmiAudioProcessorEditor::mouseMove (const MouseEvent& e)
 {
     const float s = (float) getHeight() / baseH;
     hoverZone = presetZoneAt (e.position / s);
-    setMouseCursor (hoverZone != 0 ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
+    const bool overScreen = proc.reaperBridge.available() && layout::screenRect.contains (e.position / s);   // clic = piste MIDI
+    setMouseCursor (hoverZone != 0 || overScreen ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
 }
 
 void OmiAudioProcessorEditor::mouseExit (const MouseEvent&) { hoverZone = 0; }
@@ -589,6 +603,7 @@ void OmiAudioProcessorEditor::mouseDown (const MouseEvent& e)
 {
     if (e.mods.isPopupMenu()) { showContextMenu(); return; }
     const float s = (float) getHeight() / baseH;
+    if (layout::screenRect.contains (e.position / s)) { showReaperMenu(); return; }
     if (presetRect.contains (e.position / s) && statusAlpha > 0.0f)
         { statusUntil = 0.0; learnLineUntil = 0.0; }
     switch (presetZoneAt (e.position / s))
@@ -673,6 +688,7 @@ PopupMenu OmiAudioProcessorEditor::buildContextMenu (int learnIdx)
     }
 
     addHeader (menu, menuLnf.f, icoPedal, accent, "Omi", "Guitar to MIDI  v" + String (JucePlugin_VersionString));
+    addReaperItems (menu);
     PopupMenu factory;
     for (int i = 0; i < OmiAudioProcessor::getNumFactoryPresets(); ++i)
         factory.addItem (100 + i, String (i + 1) + ". " + OmiAudioProcessor::getFactoryPreset (i).name, true, proc.currentPreset.load() == i);
@@ -700,6 +716,11 @@ PopupMenu OmiAudioProcessorEditor::buildContextMenu (int learnIdx)
     const int cNow = roundToInt (proc.rawAt (OmiAudioProcessor::rChannel));
     for (int i = 1; i <= 16; ++i) chan.addItem (70 + i, "Channel " + String (i), true, cNow == i);
     menu.addSubMenu ("MIDI out channel", chan);
+    PopupMenu fold;
+    const int foNow = roundToInt (proc.rawAt (OmiAudioProcessor::rFold));
+    fold.addSectionHeader ("Lower notes go up one octave");
+    for (int i = 0; i < 4; ++i) fold.addItem (40 + i, OmiAudioProcessor::foldNames()[i], true, foNow == i);
+    menu.addSubMenu ("Lowest MIDI note out", fold);
     const bool muted = proc.rawAt (OmiAudioProcessor::rThru) > 0.5f;
     thru.addItem (90, "Thru (guitar still heard)", true, ! muted);
     thru.addItem (91, "Mute (MIDI only)", true, muted);
@@ -749,6 +770,7 @@ void OmiAudioProcessorEditor::showContextMenu (int learnIdx)
             }
             if      (r == NineHandsWindow::idLatch)     pr.setParamValue ("midiFsMode", 0.0f);
             else if (r == NineHandsWindow::idMomentary) pr.setParamValue ("midiFsMode", 1.0f);
+            else if (r >= 40 && r <= 43) pr.setParamValue ("fold", (float) (r - 40));
             else if (r >= 50 && r <= 52) pr.setParamValue ("feel", (float) (r - 50));
             else if (r >= 60 && r <= 63) pr.setParamValue ("lowest", (float) (r - 60));
             else if (r >= 71 && r <= 86) pr.setParamValue ("channel", (float) (r - 70));
@@ -756,7 +778,56 @@ void OmiAudioProcessorEditor::showContextMenu (int learnIdx)
             else if (r >= 100 && r < 200) pr.applyFactoryPreset (r - 100);
             else if (r > 200 && r < 300)  pr.loadUserPreset (r - 200);
             else if (r > 300 && r < 400)  pr.saveUserPreset (r - 300);
+            else if (ed.handleReaperItem (r)) return;
             else if (r >= 1000) { ed.handleMidiMenu (r); return; }
             ed.showStatus();
         });
+}
+
+//==============================================================================
+// REAPER : piste d'instrument qui recoit le MIDI d'Omi (receive Audio : None, MIDI : All -> All)
+//==============================================================================
+void OmiAudioProcessorEditor::addReaperItems (PopupMenu& menu)
+{
+    auto& rb = proc.reaperBridge;
+    if (! rb.available()) return;
+    const auto recv = rb.receivers();
+    for (int i = 0; i < recv.size(); ++i)
+    {
+        const auto& t = recv.getReference (i);
+        if (t.instrument.isNotEmpty()) omi::ReaperBridge::setLastInstrument (t.instrument);
+        menu.addItem (400 + i, "MIDI \xe2\x86\x92 " + t.trackName + (t.instrument.isNotEmpty() ? "  (" + t.instrument.fromFirstOccurrenceOf (": ", false, false) + ")" : String ("  (no instrument)")));
+    }
+    menu.addItem (390, recv.isEmpty() ? "Create MIDI track + choose instrument..." : "Create another MIDI track + choose instrument...");
+    const auto last = omi::ReaperBridge::lastInstrument();
+    if (last.isNotEmpty())
+        menu.addItem (391, "Create MIDI track with " + last.fromFirstOccurrenceOf (": ", false, false));
+    menu.addSeparator();
+}
+
+bool OmiAudioProcessorEditor::handleReaperItem (int r)
+{
+    auto& rb = proc.reaperBridge;
+    if (r == 390 || r == 391)
+    {
+        const bool ok = rb.createInstrumentTrack (r == 391 ? omi::ReaperBridge::lastInstrument() : String());
+        learnLine = ok ? String ("MIDI track created") : String ("REAPER only");
+        learnLineUntil = Time::getMillisecondCounterHiRes() + 2500.0;
+        statusUntil = jmax (statusUntil, learnLineUntil);
+        return true;
+    }
+    if (r >= 400 && r < 464) { rb.showReceiver (r - 400); return true; }
+    return false;
+}
+
+void OmiAudioProcessorEditor::showReaperMenu()
+{
+    if (! proc.reaperBridge.available()) { showContextMenu(); return; }
+    PopupMenu menu;
+    menu.setLookAndFeel (&menuLnf);
+    NineHandsMenu::addHeader (menu, menuLnf.f, NineHandsMenu::icoMidi, accent, "MIDI out", "Instrument track in REAPER");
+    addReaperItems (menu);
+    menu.showMenuAsync (PopupMenu::Options().withMousePosition(),
+        [safe = Component::SafePointer<OmiAudioProcessorEditor> (this)] (int r)
+        { if (safe != nullptr && r != 0) safe->handleReaperItem (r); });
 }

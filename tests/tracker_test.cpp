@@ -13,7 +13,7 @@ int main()
     struct N { int midi; double dur; float amp; float fundGain; };
     // 8 cordes en F#1 / E1 / D1, 7 cordes en G1, puis aigus ; fondamentale tres faible sur les graves
     std::vector<N> seq = { {30,0.8,0.5f,0.15f},{28,0.8,0.5f,0.12f},{28,0.5,0.4f,0.12f},{26,0.9,0.5f,0.10f},{31,0.6,0.3f,0.2f},
-                           {33,0.4,0.6f,0.2f},{24,1.0,0.5f,0.08f},{21,1.2,0.6f,0.08f},{40,0.4,0.3f,0.6f},{52,0.3,0.2f,0.8f},{64,0.3,0.2f,0.9f},{88,0.3,0.15f,1.0f} };
+                           {33,0.4,0.6f,0.2f},{24,1.0,0.5f,0.08f},{21,1.2,0.6f,0.08f},{20,1.2,0.6f,0.08f},{40,0.4,0.3f,0.6f},{52,0.3,0.2f,0.8f},{64,0.3,0.2f,0.9f},{88,0.3,0.15f,1.0f} };
     std::vector<float> x; std::vector<std::pair<double,int>> truth;
     for (auto& n : seq)
     {
@@ -54,7 +54,7 @@ int main()
         for (int i = 0; i < (int) (0.08 * fs); ++i) x.push_back (0.0008f * nd (rng));
     }
     omi::Tracker tr; tr.prepare (fs);
-    omi::Settings s; s.sensDb = -40.0f; s.lowestHz = 25.0f; s.feel = 1;
+    omi::Settings s; s.minOut = -1; s.sensDb = -40.0f; s.lowestHz = 25.0f; s.feel = 1;
     omi::Event ev[omi::Tracker::maxEvents]; int nEv = 0;
     const int B = 256;
     size_t ti = 0; int errors = 0, ons = 0;

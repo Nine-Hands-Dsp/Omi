@@ -4,6 +4,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <atomic>
 #include "OmiDSP.h"
+#include "ReaperBridge.h"
 
 //==============================================================================
 // OMI (NINE HANDS | DSP) - convertisseur guitare -> MIDI (monophonique), voir README.md et OmiDSP.h.
@@ -61,7 +62,7 @@ public:
     void setParamValue (const juce::String& id, float plain);
 
     // anti-gel : pointeurs des parametres mis en cache (aucune recherche par chaine dans processBlock)
-    enum RawIndex { rSens, rDyn, rBend, rTrans, rActive, rMidiFsMode, rFeel, rChannel, rLowest, rThru, numRaw };
+    enum RawIndex { rSens, rDyn, rBend, rTrans, rActive, rMidiFsMode, rFeel, rChannel, rLowest, rThru, rFold, numRaw };
     float rawAt (int i) const { return rawPtr[i]->load (std::memory_order_relaxed); }
     float raw (const char* id) const
     {
@@ -69,7 +70,7 @@ public:
             if (std::strcmp (id, rawIds[i]) == 0) return rawAt (i);
         return apvts.getRawParameterValue (id)->load();
     }
-    static constexpr const char* rawIds[numRaw] = { "sens", "dyn", "bend", "trans", "active", "midiFsMode", "feel", "channel", "lowest", "thru" };
+    static constexpr const char* rawIds[numRaw] = { "sens", "dyn", "bend", "trans", "active", "midiFsMode", "feel", "channel", "lowest", "thru", "fold" };
     std::atomic<float>* rawPtr[numRaw] {};
 
     static constexpr int numBendSteps = 9;
@@ -77,6 +78,8 @@ public:
     static juce::String bendText (int idx) { const int b = bendSemis (idx); return b == 0 ? juce::String ("CHROMA") : "\xc2\xb1" + juce::String (b); }
     static juce::StringArray feelNames()   { return { "Fast", "Normal", "Stable" }; }
     static juce::StringArray lowestNames() { return { "E2  (6 strings)", "B1  (7 strings)", "F#1  (8 strings)", "A0  (8 strings, very low tunings)" }; }
+    static juce::StringArray foldNames()   { return { "Off (any note)", "B0  (5-string bass)", "E1  (4-string bass)", "A0  (extended range)" }; }
+    static int foldNote (int idx) { static const int n[4] = { -1, 23, 28, 21 }; return n[juce::jlimit (0, 3, idx)]; }
     static float lowestHz (int idx) { static const float f[4] = { 78.0f, 58.0f, 44.0f, 26.0f }; return f[juce::jlimit (0, 3, idx)]; }
     static juce::String noteName (int midi);
 
@@ -101,6 +104,18 @@ public:
     std::atomic<int> learnTarget { -1 };
     std::atomic<int> lastLearned { -1 };
     void resetMidiMap();
+
+    // REAPER : creation de la piste d'instrument qui recoit le MIDI d'Omi
+    omi::ReaperBridge reaperBridge;
+   #if JucePlugin_Build_VST3
+    struct Vst3Ext : juce::VST3ClientExtensions
+    {
+        explicit Vst3Ext (omi::ReaperBridge& b) : bridge (b) {}
+        void setIHostApplication (Steinberg::FUnknown* p) override { bridge.setHost (p); }
+        omi::ReaperBridge& bridge;
+    } vst3Ext { reaperBridge };
+    juce::VST3ClientExtensions* getVST3ClientExtensions() override { return &vst3Ext; }
+   #endif
 
 private:
     void handleMidi (juce::MidiBuffer& midi, juce::MidiBuffer& passThru);

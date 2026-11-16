@@ -55,6 +55,8 @@ struct Settings
     int   feel = 1;           // 0 rapide, 1 normal, 2 stable (comme le PLAY FEEL du GI-20)
     int   channel = 1;        // 1-16
     float lowestHz = 25.0f;   // note la plus grave suivie
+    int   minOut = 23;        // note MIDI la plus grave envoyee (-1 = libre) : en dessous, remontee d'une octave
+                              // (tessiture du VST recepteur : B0 = 23 basse 5 cordes, E1 = 28 basse 4 cordes)
     bool  active = true;
 };
 
@@ -300,7 +302,9 @@ private:
     void startNote (int c, float med, int sample, const Settings& s, Event* ev, int& nEv)
     {
         note = c; noteAge = 0;
-        const int out = std::clamp (c + s.transpose, 0, 127);
+        int out = c + s.transpose;
+        if (s.minOut >= 0) while (out < s.minOut) out += 12;          // note sous la tessiture du VST : une octave plus haut
+        out = std::clamp (out, 0, 127);
         // velocite : crete des 30 premieres ms au-dessus du seuil (36 dB de dynamique)
         const float pk = std::max (onsetPeak, envDb);
         float v = std::clamp ((pk - s.sensDb) / 36.0f, 0.0f, 1.0f);
