@@ -71,7 +71,7 @@ Moteur `OmiDSP.h`, sans JUCE, sans allocation ni verrou dans le thread audio :
 - **Stabilisation** : médiane glissante des estimations, confirmation sur 2 / 3 / 5 analyses (*Play feel*), un saut d'octave demande deux fois plus de confirmations, hystérésis de 0,6 demi-ton entre deux notes.
 - **Tenue d'octave** (clic droit > *Octave hold*, activée par défaut) : si la note en cours sonne encore et que l'on joue la même note une ou deux octaves au-dessus, la première note est gardée (la basse reste sur la fondamentale). Omi le reconnaît aux harmoniques impaires de la première corde, qui restent présentes tant qu'elle sonne ; corde étouffée, l'octave part normalement.
 - **Tenue sans décrochage** : une analyse ratée (fin de note, bruit) ne coupe jamais la note ; seuls la porte de niveau (SENS, 6 dB d'hystérésis, 40 ms) ou une nouvelle note confirmée y mettent fin. Une nouvelle attaque sur la même note est reconnue à l'enveloppe et redéclenche la note.
-- **Latence** : ≈ 15–30 ms dans les médiums et aigus ; en jeu rapide sur 7 cordes en Sol, ≈ 37–40 ms en *Play feel* Fast et ≈ 40–45 ms en Normal ; ≈ 80 ms sur A0. Il faut au moins une à deux périodes de la corde pour en connaître la hauteur (même limite que les boîtiers matériels).
+- **Latence** : ≈ 15–30 ms dans les médiums et aigus ; en jeu rapide sur 7 cordes en Sol, ≈ 33–37 ms en *Play feel* Fast et ≈ 36–41 ms en Normal ; ≈ 80 ms sur A0. Il faut au moins une à deux périodes de la corde pour en connaître la hauteur (même limite que les boîtiers matériels).
 
 Tests : `tests/tracker_test.cpp` (cordes synthétiques à fondamentale faible et inharmonicité, F#1, E1, D1, C1, A0, G#0, G1, legato, aigus ; 44,1 / 48 / 96 kHz : aucune fausse note), `tests/fast_test.cpp` (jeu rapide d'une corde à l'autre, cordes étouffées ou qui sonnent encore) et `tools/render` (bout en bout : audio → MIDI dans le vrai processeur). ≈ 2,5 % d'un cœur.
 
@@ -103,6 +103,7 @@ et les autres messages passent vers l'instrument suivant. Program Change 1-10 = 
 
 ## Versions
 
+- **1.0.8** (16 nov. 2026) : latence réduite de 3 à 5 ms sans perte de justesse : l'attaque est aussi reconnue à sa brillance (aigus du médiator), une corde grave jouée après une plus aiguë part tout de suite ; un bruit de frette ne relance pas la note.
 - **1.0.7** (16 nov. 2026) : inverseur DRY / MIDI sur la pédale (photos du kit) ; choix de l'instrument dans la fenêtre d'Omi (liste des instruments installés par format et fabricant) au lieu de la fenêtre FX de REAPER ; piste créée en piste MIDI (entrée MIDI, tous canaux).
 - **1.0.6** (16 nov. 2026) : après la création de la piste, la fenêtre de l'instrument s'ouvre seule (plus la chaîne FX) ; son de la guitare (dry) coupable depuis l'écran ou par MIDI Learn (*Dry guitar*), indication DRY OFF.
 - **1.0.5** (16 nov. 2026) : *Octave hold* (la note qui sonne est gardée quand on joue son octave par-dessus, `tests/octave_test.cpp`) ; preset **Neutral** (tous les potards à midi) chargé à l'ouverture, preset **7 Strings in G** (Lowest note G1) ; les presets 7 et 8 cordes règlent aussi Lowest note.

@@ -90,8 +90,8 @@ public:
         hp.reset(); for (auto& f : lp) f.reset();
         std::memset (ring, 0, sizeof (ring));
         writePos = 0; decCount = 0; hopCount = 0;
-        env = 0.0f; fastE = slowE = fastPrev1 = fastPrev2 = 0.0f; envDb = -120.0f; gateOpen = false; gateLowTime = 0;
-        onsetFlag = false; onsetPeak = -120.0f; onsetAge = 1 << 20;
+        env = 0.0f; fastE = slowE = fastPrev1 = fastPrev2 = 0.0f; prevIn = fastD = slowD = dPrev1 = dPrev2 = 0.0f; envDb = -120.0f; gateOpen = false; gateLowTime = 0;
+        onsetFlag = false; onsetStrong = false; onsetPeak = -120.0f; onsetAge = 1 << 20;
         histCount = 0; candNote = -1; candCount = 0;
         note = -1; sentNote = -1; lastBend = 8192; bendSm = 0.0f;
         detectedMidi = -1.0f; clarity = 0.0f; rpnSentFor = -1;
@@ -122,11 +122,19 @@ public:
             env = a > env ? a : env * relCoef;
             fastE = fastE * fastCoef + in * in * (1.0f - fastCoef);
             slowE = slowE * refCoef + fastE * (1.0f - refCoef);
-            if (++snapCount >= (int) (0.005 * fs)) { snapCount = 0; fastPrev2 = fastPrev1; fastPrev1 = fastE; }
+            // brillance (energie de la derivee) : une attaque de mediator apporte des aigus frais, meme quand la nouvelle
+            // corde est moins forte que la precedente (corde grave apres une plus aigue)
+            const float dd = in - prevIn; prevIn = in;
+            fastD = fastD * fastCoef + dd * dd * (1.0f - fastCoef);
+            slowD = slowD * refCoef + fastD * (1.0f - refCoef);
+            if (++snapCount >= (int) (0.005 * fs)) { snapCount = 0; fastPrev2 = fastPrev1; fastPrev1 = fastE; dPrev2 = dPrev1; dPrev1 = fastD; }
             // attaque (nouveau coup de mediator) : energie +6 dB au-dessus de la reference et +5 dB en 10 ms
-            if (fastE > 2.5f * slowE + 1.0e-9f && fastE > 2.0f * fastPrev2 + 1.0e-9f   // +4 dB sur la reference, +3 dB en 10 ms
+            const bool energyOnset = fastE > 2.5f * slowE + 1.0e-9f && fastE > 2.0f * fastPrev2 + 1.0e-9f;  // +4 dB sur la reference, +3 dB en 10 ms
+            const bool brightOnset = fastD > 3.0f * slowD + 1.0e-12f && fastD > 2.5f * dPrev2 + 1.0e-12f;  // brillance : +5 dB, +4 dB en 10 ms
+            if (energyOnset && onsetFlag && ! onsetStrong) onsetStrong = true;   // l'energie confirme une attaque deja vue aux aigus
+            if ((energyOnset || brightOnset)
                 && env > 1.0e-3f && onsetAge > (int) (0.080 * fs))
-                { onsetFlag = true; onsetAge = 0; onsetPeak = -120.0f; sinceOnsetDec = (int) (0.006 * fsd); }   // l'attaque a commence ~6 ms avant d'etre reconnue
+                { onsetFlag = true; onsetStrong = energyOnset; onsetAge = 0; onsetPeak = -120.0f; sinceOnsetDec = (int) (0.006 * fsd); }   // l'attaque a commence ~6 ms avant d'etre reconnue
             ++onsetAge;
             if (onsetAge < (int) (0.030 * fs)) onsetPeak = std::max (onsetPeak, toDb (env));
 
@@ -198,7 +206,7 @@ private:
         detectedMidi = med;
 
         int confirmBase = s.feel == 0 ? 2 : (s.feel == 1 ? 3 : 5);
-        if (clar >= 0.90f) confirmBase = std::max (1, confirmBase - 1);
+        if (clar >= 0.87f) confirmBase = std::max (1, confirmBase - 1);
         const int c = (int) std::lround (med);
 
         // tenue d'octave : la note en cours sonne encore et l'on joue la meme note une ou deux octaves au-dessus ->
@@ -221,6 +229,8 @@ private:
             if (c == candNote) ++candCount; else { candNote = c; candCount = 1; }
             if (candCount >= confirmBase)
             {
+                // attaque vue seulement aux aigus (bruit de frette, glisse) sur la note qui sonne deja : pas de nouvelle note
+                if (onsetFlag && ! onsetStrong && note >= 0 && c == note) { onsetFlag = false; candNote = note; candCount = 0; return; }
                 const bool retrig = onsetFlag;
                 onsetFlag = false;
                 if (sentNote >= 0 && (retrig || c != note)) stopNote (sample, s, ev, nEv);
@@ -396,6 +406,8 @@ private:
     }
 
     double fs = 48000.0, fsd = 8000.0;
+    bool onsetStrong = false;
+    float prevIn = 0.0f, fastD = 0.0f, slowD = 0.0f, dPrev1 = 0.0f, dPrev2 = 0.0f;
     int decim = 6, decCount = 0, hopCount = 0, writePos = 0;
     Biquad hp, lp[3];
     float ring[ringSize] {};

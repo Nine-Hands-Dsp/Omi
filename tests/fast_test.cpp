@@ -1,3 +1,4 @@
+// Bruit de mediator (~4 ms) a chaque attaque, comme sur une vraie guitare.
 // Jeu rapide d'une corde a l'autre, cordes NON etouffees (l'ancienne corde continue de sonner sous la nouvelle) :
 // 7 cordes en G (G1 D2 G2 C3 F3 A3 D4) et 8 cordes, croches et doubles croches. g++ -O2 -std=c++17 tests/fast_test.cpp
 #include "../OmiDSP.h"
@@ -14,7 +15,7 @@ int run (const char* title, std::vector<Pluck> seq, double step, float lowestHz,
     std::mt19937 rng (5); std::normal_distribution<float> nd (0, 1);
     struct Voice { double f = 0, t0 = -1, tOff = 1e9; float fund = 0.1f; double ph[13] {}; } v[8];
     const int stepN = (int) (step * fs);
-    std::vector<float> x; std::vector<std::pair<double,int>> truth;
+    std::vector<float> x; std::vector<std::pair<double,int>> truth; float lastR = 0;
     for (size_t k = 0; k < seq.size(); ++k)
     {
         if (mute) for (int j = 0; j < 8; ++j) if (j != seq[k].string && v[j].t0 >= 0 && v[j].tOff > 1e8) v[j].tOff = x.size() / fs;   // main gauche / paume : l'ancienne corde est etouffee
@@ -36,7 +37,8 @@ int run (const char* title, std::vector<Pluck> seq, double step, float lowestHz,
                     s += damp * (h == 1 ? w.fund : 1.0 / h) * std::exp (-tt * (1.2 + 0.5 * h)) * std::sin (w.ph[h]) * std::min (1.0, tt / 0.002);
                 }
             }
-            x.push_back ((float) (0.25 * s + 0.0006 * nd (rng)));
+            { const double tp = t - vo.t0; double pk = 0; if (tp < 0.004) { const float r = nd (rng); pk = (r - lastR) * 0.05 * std::exp (-tp / 0.0012); lastR = r; }
+              x.push_back ((float) (0.25 * s + pk + 0.0006 * nd (rng))); }
         }
     }
     omi::Tracker tr; tr.prepare (fs);
