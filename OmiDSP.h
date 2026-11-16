@@ -60,6 +60,7 @@ struct Settings
     int   minOut = 23;        // note MIDI la plus grave envoyee (-1 = libre) : si la corde la plus grave (lowestHz), transposee,
                               // tombe en dessous, TOUTES les notes montent d'une octave (l'ordre des cordes est garde)
                               // (tessiture du VST recepteur : B0 = 23 basse 5 cordes, E1 = 28 basse 4 cordes)
+    bool  octaveHold = true;  // la meme note jouee a l'octave par-dessus une note qui sonne encore : la premiere est gardee
     bool  active = true;
 };
 
@@ -200,6 +201,20 @@ private:
         if (clar >= 0.90f) confirmBase = std::max (1, confirmBase - 1);
         const int c = (int) std::lround (med);
 
+        // tenue d'octave : la note en cours sonne encore et l'on joue la meme note une ou deux octaves au-dessus ->
+        // la premiere note est gardee (le melange des deux cordes reste periodique a la periode de la premiere)
+        if (s.octaveHold && note >= 0 && (c == note + 12 || c == note + 24) && notePeriod > 0.0f)
+        {
+            const int pc = (int) std::lround (notePeriod);
+            if (pc + 2 > lastTop) return;                         // periode de la premiere note pas encore visible : attendre
+            float v = 0.0f;
+            for (int d = -2; d <= 2; ++d) v = std::max (v, nsdf[pc + d]);
+            // la premiere note sonne-t-elle encore ? le peigne a la periode de la nouvelle note efface celle-ci (et les
+            // harmoniques paires de la premiere) : il reste les harmoniques impaires de la premiere si elle sonne encore
+            const float odd = oddResidue (lastTau, pc);
+            if (v >= 0.80f && odd >= 0.014f) { onsetFlag = false; candNote = note; candCount = 0; detectedMidi = (float) note; return; }
+        }
+
         if (note < 0 || onsetFlag)
         {
             // nouvelle note : confirmation sur plusieurs analyses
@@ -253,12 +268,14 @@ private:
         for (int tau = 0; tau <= tauMax + 1; ++tau) nsdf[tau] = 0.0f;
         // apres une nouvelle attaque, seule la partie qui suit l'attaque est analysee : l'ancienne corde ne trompe plus l'analyse
         int top = tauMax;
+        lastTop = 0;
         const int avail = (note >= 0 && sinceOnsetDec < (int) (0.5 * fsd)) ? sinceOnsetDec + 16 : (1 << 24);
         for (int tau = 1; tau <= tauMax + 1; ++tau)
         {
             if (std::max (wMin, (int) (tau * 0.8f)) + tau > avail) { top = std::min (tauMax, tau - 2); break; }
             nsdf[tau] = nsdfAt (tau, end, wMin);
         }
+        lastTop = top;
         if (top < tauMin + 2) return false;
 
         // maxima cles : un maximum par lobe positif, apres le premier passage sous zero
@@ -298,8 +315,26 @@ private:
         const float den = a - 2.0f * b + c;
         if (std::abs (den) > 1.0e-9f) tauF += 0.5f * (a - c) / den;
         f0 = (float) (fsd / tauF);
+        lastTau = tauF;
         clar = b;
         return f0 >= s.lowestHz * 0.97f && f0 <= 1500.0f;
+    }
+
+    // part d'energie qui reste apres un peigne de periode tau sur une fenetre de w echantillons (derniers echantillons)
+    float oddResidue (float tau, int w) const
+    {
+        if (tau < 2.0f) return 0.0f;
+        const int need = w + (int) tau + 4;
+        double ex = 0.0, ey = 0.0;
+        for (int i = 0; i < w; ++i)
+        {
+            const float xn = at (i);
+            const float pos = (float) i + tau; const int ip = (int) pos; const float fr = pos - (float) ip;
+            if (ip + 1 >= need) break;
+            const float xd = at (ip) + fr * (at (ip + 1) - at (ip));
+            ex += (double) xn * xn; ey += (double) (xn - xd) * (xn - xd);
+        }
+        return ex > 1e-12 ? (float) (ey / (4.0 * ex)) : 0.0f;
     }
 
     float nsdfAt (int tau, int end, int wMin) const
@@ -332,6 +367,7 @@ private:
     void startNote (int c, float med, int sample, const Settings& s, Event* ev, int& nEv)
     {
         note = c; noteAge = 0;
+        notePeriod = (float) (fsd / (440.0 * std::pow (2.0, (c - 69) / 12.0)));     // periode de la note juste
         const int out = std::clamp (c + effectiveTranspose (s), 0, 127);
         // velocite : crete des 30 premieres ms au-dessus du seuil (36 dB de dynamique)
         const float pk = std::max (onsetPeak, envDb);
@@ -377,7 +413,8 @@ private:
     static constexpr int histMax = 16;
     float hist[histMax] {};
     int histCount = 0, candNote = -1, candCount = 0;
-    int note = -1, sentChannel = 1, rpnSentFor = -1, noteAge = 0;
+    int note = -1, sentChannel = 1, rpnSentFor = -1, noteAge = 0, lastTop = 0;
+    float notePeriod = 0.0f, lastTau = 0.0f;
     float bendSm = 0.0f;
 };
 } // namespace omi

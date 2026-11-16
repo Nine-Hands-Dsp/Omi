@@ -6,7 +6,7 @@ if(APPLE)
   set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "" FORCE)
 endif()
 
-project(Omi VERSION 1.0.4)
+project(Omi VERSION 1.0.5)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -39,7 +39,7 @@ juce_add_plugin(Omi
   FORMATS VST3
   VST3_CATEGORIES Fx Analyzer
   PRODUCT_NAME "Omi"
-  VERSION 1.0.4
+  VERSION 1.0.5
   DESCRIPTION "Guitar to MIDI converter (monophonic, very low tunings) - single pedal format"
   IS_SYNTH FALSE
   NEEDS_MIDI_INPUT TRUE

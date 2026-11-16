@@ -40,7 +40,7 @@ int main (int argc, char** argv)
     };
     auto silence = [&] (double secs) { int n = 0, l = 0; play (0, 0, 0, n, l); for (int k = 0; k < (int) (secs * fs / 256); ++k) { AudioBuffer<float> b (2, 256); b.clear(); MidiBuffer m; proc.processBlock (b, m); } for (auto& p : phase) p = 0; };
 
-    proc.applyFactoryPreset (0);                // Bass Mono : -12
+    proc.applyFactoryPreset (2);                // Bass Mono : -12
     int ok = 0, tot = 0;
     for (int fold : { 0, 1 })
     {
@@ -75,7 +75,7 @@ int main (int argc, char** argv)
         FileOutputStream os (f); PNGImageFormat().writeImageToStream (img, os);
         std::printf ("%s (%d x %d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
     };
-    proc.applyFactoryPreset (0);
+    proc.applyFactoryPreset (2);
     shot ("omi_note", OmiAudioProcessorEditor::refH, 31, false);
     shot ("omi_default", OmiAudioProcessorEditor::defaultH, 28, false);
     shot ("omi_status", OmiAudioProcessorEditor::refH, 26, true);
@@ -84,7 +84,7 @@ int main (int argc, char** argv)
     proc.setParamValue ("active", 1.0f);
     {
         oed->setScaledHeight (900); oed->forceRenderScale (2.0f);
-        int c = 0, l = 0; proc.applyFactoryPreset (0); play (31, 0.25, 0.4f, c, l);
+        int c = 0, l = 0; proc.applyFactoryPreset (2); play (31, 0.25, 0.4f, c, l);
         for (int i = 0; i < 20; ++i) oed->tickForCapture();
         pump (12);
         auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1800.0f / (float) ed->getHeight());

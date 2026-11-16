@@ -54,7 +54,7 @@ clic droit > *Guitar audio* > *Mute* pour ne garder que l'instrument.
 | **TRANS** | Transposition −24 à +24 demi-tons (−12 = basse une octave sous la guitare) |
 | Footswitch | Marche / arrêt du MIDI (All Notes Off à l'arrêt : aucune note bloquée) |
 | Écran (clic) | REAPER : créer une piste d'instrument qui reçoit le MIDI d'Omi, ouvrir l'instrument, création d'office à l'insertion (oui par défaut) |
-| Clic droit | Piste MIDI (REAPER), presets, *Play feel* (Fast / Normal / Stable), *Lowest note*, canal MIDI de sortie, *Lowest MIDI note out* (Off / B0 / E1 / A0), *Guitar audio* (Thru / Mute), MIDI Learn, taille, Glow |
+| Clic droit | Piste MIDI (REAPER), presets, *Play feel* (Fast / Normal / Stable), *Lowest note*, canal MIDI de sortie, *Lowest MIDI note out* (Off / B0 / E1 / A0), *Octave hold*, *Guitar audio* (Thru / Mute), MIDI Learn, taille, Glow |
 
 ## Détection de hauteur (renforcée pour les accordages très graves)
 
@@ -66,6 +66,7 @@ Moteur `OmiDSP.h`, sans JUCE, sans allocation ni verrou dans le thread audio :
 - **Note la plus grave (*Lowest note*)** : E2, B1, G1 (7 cordes en Sol), F#1, E1 (par défaut) ou G#0. Aucune note n'est cherchée plus bas : c'est ce qui empêche une corde de prendre l'octave du dessous. Réglez-le sur votre corde la plus grave.
 - **Correction d'octave prudente** : sur les cordes graves, la fondamentale captée par le micro est faible et l'harmonique 2 domine. Une période double (ou triple) n'est préférée que si la période trouvée est peu nette et la période double nettement meilleure.
 - **Stabilisation** : médiane glissante des estimations, confirmation sur 2 / 3 / 5 analyses (*Play feel*), un saut d'octave demande deux fois plus de confirmations, hystérésis de 0,6 demi-ton entre deux notes.
+- **Tenue d'octave** (clic droit > *Octave hold*, activée par défaut) : si la note en cours sonne encore et que l'on joue la même note une ou deux octaves au-dessus, la première note est gardée (la basse reste sur la fondamentale). Omi le reconnaît aux harmoniques impaires de la première corde, qui restent présentes tant qu'elle sonne ; corde étouffée, l'octave part normalement.
 - **Tenue sans décrochage** : une analyse ratée (fin de note, bruit) ne coupe jamais la note ; seuls la porte de niveau (SENS, 6 dB d'hystérésis, 40 ms) ou une nouvelle note confirmée y mettent fin. Une nouvelle attaque sur la même note est reconnue à l'enveloppe et redéclenche la note.
 - **Latence** : ≈ 15–30 ms dans les médiums et aigus ; en jeu rapide sur 7 cordes en Sol, ≈ 37–40 ms en *Play feel* Fast et ≈ 40–45 ms en Normal ; ≈ 80 ms sur A0. Il faut au moins une à deux périodes de la corde pour en connaître la hauteur (même limite que les boîtiers matériels).
 
@@ -85,11 +86,11 @@ Monophonique : un micro ordinaire mélange les six (sept, huit) cordes, les acco
 ## MIDI entrant
 
 **Aucun CC assigné par défaut** : clic droit sur une commande > *MIDI Learn* (Sens, Dyn, Bend, Trans, Footswitch). Les CC non assignés
-et les autres messages passent vers l'instrument suivant. Program Change 1-8 = presets d'usine.
+et les autres messages passent vers l'instrument suivant. Program Change 1-10 = presets d'usine.
 
 ## Presets d'usine
 
-Bass Mono · Bass Bend · 8 Strings Sub · Unison · Synth Lead · Octave Up Pad · Fixed Velocity · Noisy Pickups.
+**Neutral** (tous les potards à midi, chargé à l'ouverture) · **7 Strings in G** (Lowest note G1) · Bass Mono · Bass Bend · 8 Strings Sub (Lowest note F#1) · Unison · Synth Lead · Octave Up Pad · Fixed Velocity · Noisy Pickups.
 
 ## Fichiers
 
@@ -99,6 +100,7 @@ Bass Mono · Bass Bend · 8 Strings Sub · Unison · Synth Lead · Octave Up Pad
 
 ## Versions
 
+- **1.0.5** (16 nov. 2026) : *Octave hold* (la note qui sonne est gardée quand on joue son octave par-dessus, `tests/octave_test.cpp`) ; preset **Neutral** (tous les potards à midi) chargé à l'ouverture, preset **7 Strings in G** (Lowest note G1) ; les presets 7 et 8 cordes règlent aussi Lowest note.
 - **1.0.4** (16 nov. 2026) : *Lowest MIDI note out* décale tout le jeu d'une octave au lieu de remonter les notes une par une (la corde de D sortait plus grave que celle de G) ; les fenêtres FX de l'instrument ne s'ouvrent plus après la création de la piste.
 - **1.0.3** (16 nov. 2026) : la fenêtre de choix d'instrument de REAPER s'ouvre bien (Insert virtual instrument on new track) et la piste créée est reliée automatiquement à Omi ; caractères spéciaux (·, ±, →) corrigés sous Windows.
 - **1.0.2** (16 nov. 2026) : détection plus rapide et plus sûre au passage d'une corde à l'autre (analyse limitée à ce qui suit l'attaque, fenêtre 0,8 période, attaques mieux repérées, Play feel Fast fiabilisé) ; plus de corde prise pour une plus grave (correction d'octave prudente, *Lowest note* G1 et E1, E1 par défaut) ; piste MIDI créée d'office à l'insertion d'Omi dans REAPER.

@@ -15,7 +15,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHOTS, OUT = sys.argv[1], sys.argv[2]
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 TMP = os.path.join(ROOT, "tools", "manual_assets"); os.makedirs(TMP, exist_ok=True)
 FONTS = os.path.join(ROOT, "assets", "fonts")
 for n, f in (("Pop", "Poppins-Regular"), ("PopL", "Poppins-Light"), ("PopM", "Poppins-Medium"), ("PopB", "Poppins-Bold"),
@@ -119,12 +119,15 @@ def table(rows, widths, header=True, small=False):
 
 # ---------- donnees (identiques au code livre : PluginProcessor.cpp) ----------
 BEND = ["CHROMA", "±1", "±2", "±3", "±4", "±5", "±7", "±12", "±24"]
-FACTORY = [("Bass Mono", -48, 7.0, 0, -12), ("Bass Bend", -48, 7.0, 2, -12), ("8 Strings Sub", -46, 6.0, 0, 0), ("Unison", -48, 8.0, 0, 0),
-           ("Synth Lead", -50, 8.0, 7, 0), ("Octave Up Pad", -50, 3.0, 0, 12), ("Fixed Velocity", -48, 0.0, 0, 0), ("Noisy Pickups", -40, 7.0, 0, -12)]
+FACTORY = [("Neutral", -42, 5.0, 4, 0), ("7 Strings in G", -48, 7.0, 0, 0), ("Bass Mono", -48, 7.0, 0, -12), ("Bass Bend", -48, 7.0, 2, -12),
+           ("8 Strings Sub", -46, 6.0, 0, 0), ("Unison", -48, 8.0, 0, 0), ("Synth Lead", -50, 8.0, 7, 0), ("Octave Up Pad", -50, 3.0, 0, 12),
+           ("Fixed Velocity", -48, 0.0, 0, 0), ("Noisy Pickups", -40, 7.0, 0, -12)]
 FACT_DESC = {"fr": [
- "La guitare joue la basse une octave plus bas, notes franches : le réglage de départ pour piloter un VST de basse.",
+ "Tous les potards à midi : le réglage chargé à l'ouverture d'Omi, point de départ neutre.",
+ "Pour une 7 cordes en Sol : règle aussi Lowest note sur G1, notes franches, à la hauteur réelle (la corde de G sort en G1, déjà dans le registre de la basse).",
+ "La guitare joue la basse une octave plus bas, notes franches (avec Lowest MIDI note out sur B0, le jeu remonte d'une octave si la corde la plus grave passerait sous B0).",
  "Idem, avec les glissements, bends et vibratos transmis en pitch bend (±2) : réglez le VST de basse sur ±2 s'il ignore le RPN.",
- "Pour une 8 cordes : la note jouée est envoyée telle quelle, elle est déjà dans le registre de la basse.",
+ "Pour une 8 cordes : règle aussi Lowest note sur F#1, la note jouée est envoyée telle quelle, déjà dans le registre de la basse.",
  "La note jouée, sans transposition, très dynamique : doublure synthé ou orgue.",
  "Bends et vibratos de lead sur ±12 : pour un synthé solo.",
  "Une octave au-dessus, vélocité peu dynamique : nappes et cordes.",
@@ -169,6 +172,7 @@ T = {
      "<b>Play feel</b> (clic droit) : <b>Fast</b> confirme une nouvelle note sur 2 analyses (latence minimale, conseillé pour le jeu rapide), <b>Normal</b> sur 3, <b>Stable</b> sur 5 avec une analyse plus exigeante (le moins de fausses notes). Une analyse très nette demande une confirmation de moins ; un saut d'octave en demande deux fois plus. À chaque nouvelle attaque, Omi n'analyse que ce qui la suit : en passant d'une corde à l'autre, la corde précédente ne fausse plus la note.",
      "<b>Lowest note</b> (clic droit) : la note la plus grave cherchée : E2 (6 cordes), B1 (7 cordes), G1 (7 cordes en Sol), F#1 (8 cordes), E1 (8 cordes en drop E, réglage par défaut) ou G#0 (accordages très bas). <b>Réglez-le sur votre corde la plus grave</b> : aucune note n'étant cherchée plus bas, une corde plus aiguë ne peut plus être prise pour une plus grave.",
      "<b>Lowest MIDI note out</b> (clic droit) : la plupart des basses virtuelles s'arrêtent à B0 (basse 5 cordes) ou E1 (4 cordes). Avec <b>B0</b> (par défaut) ou <b>E1</b>, si votre corde la plus grave (Lowest note), transposée par TRANS, tombe sous cette limite, <b>tout le jeu</b> monte d'une octave : l'ordre des cordes est respecté. Exemple : 7 cordes en Sol, Lowest note G1, TRANS −12 : G0 est sous B0, Omi joue donc à la hauteur réelle (G1 donne G1, D2 donne D2). <b>A0</b> pour les instruments à tessiture étendue, <b>Off</b> pour appliquer TRANS tel quel.",
+     "<b>Octave hold</b> (clic droit, activé par défaut) : si la note en cours sonne encore et que vous jouez la même note une ou deux octaves au-dessus, Omi garde la première note : la basse reste sur la fondamentale pendant un jeu en octaves. Omi le reconnaît aux harmoniques impaires de la première corde, qui restent présentes tant qu'elle sonne ; si vous l'étouffez, l'octave part normalement.",
      "<b>MIDI out channel</b> (clic droit) : canal 1 à 16. <b>Guitar audio</b> : Thru (la guitare continue de passer, par défaut) ou Mute (seul le MIDI sort)."],
  midi_t="6. MIDI entrant",
  midi_intro=["Les commandes d'Omi se pilotent depuis un contrôleur MIDI (footswitchs, pédales d'expression, potards). <b>Aucun CC n'est assigné d'office</b> : vous choisissez chacun avec le <b>MIDI Learn</b>. Les CC non assignés et les autres messages MIDI entrants passent tels quels vers l'instrument suivant."],
@@ -177,7 +181,7 @@ T = {
        ["Trans", "MIDI Learn", "Par crans (demi-tons)"], ["Footswitch", "MIDI Learn", "À accrochage (127 = on / 0 = off) ou momentané (bascule à chaque appui)"]],
  learn=["<b>MIDI Learn</b> : clic droit sur une commande, choisissez <b>MIDI Learn: &lt;nom&gt;</b>, puis bougez la pédale d'expression ou appuyez sur le bouton MIDI. La ligne d'état affiche <b>MIDI LEARN · Sens</b>, puis confirme pendant 2 secondes, par ex. <b>Sens = CC 64</b>. <b>Clear MIDI</b> retire une assignation ; clic droit &gt; MIDI &gt; <b>Clear all MIDI assignments</b> les retire toutes. Les assignations sont sauvegardées avec le projet.",
         "La course réelle de votre pédale d'expression est apprise automatiquement (une pédale qui n'envoie que 2 à 116 atteint quand même 0 et 100 %). Pour un potard sur un CC de 0 à 31, le CC n+32 est lu comme sa partie fine (14 bits).",
-        "<b>Footswitch MIDI</b> : à accrochage (par défaut) ou momentané, clic droit &gt; MIDI. <b>Program Change 1 à 8</b> : rappel des presets usine. Tous les paramètres sont aussi automatisables dans le DAW."],
+        "<b>Footswitch MIDI</b> : à accrochage (par défaut) ou momentané, clic droit &gt; MIDI. <b>Program Change 1 à 10</b> : rappel des presets usine. Tous les paramètres sont aussi automatisables dans le DAW."],
  win_t="7. Fenêtre",
  win=["Omi utilise le format pédale simple de NINE HANDS | DSP : la fenêtre montre la pédale seule, plein cadre (visuel de 1235 × 1800 px), textes, écran et logo dessinés en vectoriel, nets à toutes les tailles ; elle s'ouvre à 60 % et ne peut jamais être réduite en dessous. Clic droit &gt; <b>Plugin size</b> : <b>60 %</b>, <b>75 %</b> ou <b>100 %</b> ; <b>Default size (new windows)</b> choisit la taille d'ouverture des nouvelles fenêtres. Vous pouvez aussi tirer le coin en bas à droite jusqu'à 150 % (proportions conservées).",
       "La <b>barre de presets</b> et la <b>ligne d'état</b> partagent la même pastille. Au repos, elle affiche le preset (ou <i>Edited</i>) avec ses flèches. Dès qu'un réglage bouge (souris, molette, automation, MIDI), la ligne d'état prend sa place en fondu et affiche la valeur en direct (par ex. <i>SENS -44 dB</i>) ou les messages du MIDI Learn ; 2,5 s après le dernier mouvement, la barre de presets revient. Un clic sur la pastille la fait revenir tout de suite.",
@@ -198,7 +202,7 @@ T = {
        ["Plage", "de la note réglée dans Lowest note (jusqu'à G#0, 26 Hz) à environ 1,5 kHz"],
        ["Latence", "≈ 15–30 ms (médiums, aigus), ≈ 40 ms (cordes graves en jeu rapide), ≈ 80 ms (A0) ; aucune latence audio"],
        ["Processeur", "environ 2 à 3 % d'un cœur à 48 kHz"],
-       ["MIDI entrant", "MIDI Learn sur les 5 commandes (rien d'assigné par défaut), CC 14 bits, Program Change 1-8, autres messages transmis"],
+       ["MIDI entrant", "MIDI Learn sur les 5 commandes (rien d'assigné par défaut), CC 14 bits, Program Change 1-10, autres messages transmis"],
        ["Fenêtre", "Plugin size 60 % / 75 % / 100 %, jusqu'à 150 %, jamais sous 60 % ; anti-gel v2 sous Windows"]]),
 }
 

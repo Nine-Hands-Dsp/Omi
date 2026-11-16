@@ -13,8 +13,8 @@ namespace
     const Colour panel (0xff060a12);        // fond de la pastille
     const Colour scrCyan (0xff5acdff), scrWhite (0xffebf4ff), scrGrey (0xff788ca5), scrDim (0xff1e2c3e);
 
-    const char* const valueIds[] = { "sens", "dyn", "bend", "trans", "active", "feel", "channel", "lowest", "thru", "fold" };
-    constexpr int numValueIds = 10;
+    const char* const valueIds[] = { "sens", "dyn", "bend", "trans", "active", "feel", "channel", "lowest", "thru", "fold", "octHold" };
+    constexpr int numValueIds = 11;
     constexpr float meterLo = -72.0f, meterHi = -6.0f;
 }
 
@@ -228,6 +228,7 @@ String OmiAudioProcessorEditor::buildStatusLine() const
     if (id == "lowest")  return "lowest note  " + OmiAudioProcessor::lowestNames()[jlimit (0, OmiAudioProcessor::numLowest - 1, roundToInt (v))].upToFirstOccurrenceOf (" ", false, false);
     if (id == "fold")    { const int n = OmiAudioProcessor::foldNote (roundToInt (v)); return n < 0 ? String ("lowest midi note  free") : "lowest midi note  " + OmiAudioProcessor::noteName (n); }
     if (id == "thru")    return v > 0.5f ? "guitar audio muted" : "guitar audio thru";
+    if (id == "octHold") return v > 0.5f ? "octave hold on" : "octave hold off";
     return v > 0.5f ? "midi on" : "bypass";
 }
 
@@ -721,6 +722,7 @@ PopupMenu OmiAudioProcessorEditor::buildContextMenu (int learnIdx)
     fold.addSectionHeader ("Lower notes go up one octave");
     for (int i = 0; i < 4; ++i) fold.addItem (40 + i, OmiAudioProcessor::foldNames()[i], true, foNow == i);
     menu.addSubMenu ("Lowest MIDI note out", fold);
+    menu.addItem (44, "Octave hold (keep the ringing note when its octave is played)", true, proc.rawAt (OmiAudioProcessor::rOctHold) > 0.5f);
     const bool muted = proc.rawAt (OmiAudioProcessor::rThru) > 0.5f;
     thru.addItem (90, "Thru (guitar still heard)", true, ! muted);
     thru.addItem (91, "Mute (MIDI only)", true, muted);
@@ -771,6 +773,7 @@ void OmiAudioProcessorEditor::showContextMenu (int learnIdx)
             if      (r == NineHandsWindow::idLatch)     pr.setParamValue ("midiFsMode", 0.0f);
             else if (r == NineHandsWindow::idMomentary) pr.setParamValue ("midiFsMode", 1.0f);
             else if (r >= 40 && r <= 43) pr.setParamValue ("fold", (float) (r - 40));
+            else if (r == 44) pr.setParamValue ("octHold", pr.rawAt (OmiAudioProcessor::rOctHold) > 0.5f ? 0.0f : 1.0f);
             else if (r >= 50 && r <= 52) pr.setParamValue ("feel", (float) (r - 50));
             else if (r >= 60 && r < 60 + OmiAudioProcessor::numLowest) pr.setParamValue ("lowest", (float) (r - 60));
             else if (r >= 71 && r <= 86) pr.setParamValue ("channel", (float) (r - 70));

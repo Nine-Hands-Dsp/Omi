@@ -16,6 +16,7 @@ struct OmiPreset
     const char* name;
     float sens, dyn;      // sens en dB, dyn 0..10
     int bend, trans;      // bend : index de plage (0 = chromatique), trans en demi-tons
+    int lowest;           // Lowest note (index de lowestNames), -1 = inchange
 };
 
 class OmiAudioProcessor : public juce::AudioProcessor,
@@ -62,7 +63,7 @@ public:
     void setParamValue (const juce::String& id, float plain);
 
     // anti-gel : pointeurs des parametres mis en cache (aucune recherche par chaine dans processBlock)
-    enum RawIndex { rSens, rDyn, rBend, rTrans, rActive, rMidiFsMode, rFeel, rChannel, rLowest, rThru, rFold, numRaw };
+    enum RawIndex { rSens, rDyn, rBend, rTrans, rActive, rMidiFsMode, rFeel, rChannel, rLowest, rThru, rFold, rOctHold, numRaw };
     float rawAt (int i) const { return rawPtr[i]->load (std::memory_order_relaxed); }
     float raw (const char* id) const
     {
@@ -70,7 +71,7 @@ public:
             if (std::strcmp (id, rawIds[i]) == 0) return rawAt (i);
         return apvts.getRawParameterValue (id)->load();
     }
-    static constexpr const char* rawIds[numRaw] = { "sens", "dyn", "bend", "trans", "active", "midiFsMode", "feel", "channel", "lowest", "thru", "fold" };
+    static constexpr const char* rawIds[numRaw] = { "sens", "dyn", "bend", "trans", "active", "midiFsMode", "feel", "channel", "lowest", "thru", "fold", "octHold" };
     std::atomic<float>* rawPtr[numRaw] {};
 
     static constexpr int numBendSteps = 9;

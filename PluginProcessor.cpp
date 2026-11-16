@@ -9,15 +9,17 @@ using namespace juce;
 //==============================================================================
 static const OmiPreset factoryPresets[] =
 {
-    //  nom                          sens    dyn   bend  trans
-    { "Bass Mono",                  -48.0f,  7.0f,  0,   -12 },   // la guitare joue la basse une octave plus bas, notes franches
-    { "Bass Bend",                  -48.0f,  7.0f,  2,   -12 },   // idem avec glissements et vibratos en pitch bend (+/-2)
-    { "8 Strings Sub",              -46.0f,  6.0f,  0,     0 },   // 8 cordes : la note jouee telle quelle (deja tres grave)
-    { "Unison",                     -48.0f,  8.0f,  0,     0 },
-    { "Synth Lead",                 -50.0f,  8.0f,  7,     0 },   // bends et vibratos de lead, plage +/-12
-    { "Octave Up Pad",              -50.0f,  3.0f,  0,    12 },
-    { "Fixed Velocity",             -48.0f,  0.0f,  0,     0 },   // velocite constante (100) : pour les sons sans dynamique
-    { "Noisy Pickups",              -40.0f,  7.0f,  0,   -12 },   // seuil plus haut : micros simples, bruit de fond
+    //  nom                          sens    dyn   bend  trans  lowest
+    { "Neutral",                    -42.0f,  5.0f,  4,     0,   -1 },   // tous les potards a midi (reglage a l'ouverture)
+    { "7 Strings in G",             -48.0f,  7.0f,  0,     0,    2 },   // 7 cordes en Sol : Lowest note G1, notes franches, hauteur reelle
+    { "Bass Mono",                  -48.0f,  7.0f,  0,   -12,   -1 },   // la guitare joue la basse une octave plus bas, notes franches
+    { "Bass Bend",                  -48.0f,  7.0f,  2,   -12,   -1 },   // idem avec glissements et vibratos en pitch bend (+/-2)
+    { "8 Strings Sub",              -46.0f,  6.0f,  0,     0,    3 },   // 8 cordes : Lowest note F#1, la note jouee telle quelle
+    { "Unison",                     -48.0f,  8.0f,  0,     0,   -1 },
+    { "Synth Lead",                 -50.0f,  8.0f,  7,     0,   -1 },   // bends et vibratos de lead, plage +/-12
+    { "Octave Up Pad",              -50.0f,  3.0f,  0,    12,   -1 },
+    { "Fixed Velocity",             -48.0f,  0.0f,  0,     0,   -1 },   // velocite constante (100) : pour les sons sans dynamique
+    { "Noisy Pickups",              -40.0f,  7.0f,  0,   -12,   -1 },   // seuil plus haut : micros simples, bruit de fond
 };
 
 int OmiAudioProcessor::getNumFactoryPresets() { return (int) std::size (factoryPresets); }
@@ -97,6 +99,7 @@ AudioProcessorValueTreeState::ParameterLayout OmiAudioProcessor::createLayout()
     p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "lowest", 1 }, "Lowest Note", lowestNames(), 4));
     p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "thru", 1 }, "Guitar Audio", StringArray { "Thru", "Mute" }, 0));
     p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "fold", 1 }, "Lowest MIDI Note Out", foldNames(), 1));
+    p.push_back (std::make_unique<AudioParameterBool> (ParameterID { "octHold", 1 }, "Octave Hold", true));
     return { p.begin(), p.end() };
 }
 
@@ -255,6 +258,7 @@ void OmiAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& mi
     s.lowestHz  = lowestHz (roundToInt (rawAt (rLowest)));
     s.minOut    = foldNote (roundToInt (rawAt (rFold)));
     s.active    = rawAt (rActive) > 0.5f;
+    s.octaveHold = rawAt (rOctHold) > 0.5f;
 
     // changement de canal : la note en cours est coupee sur l'ancien canal
     if (s.channel != lastChannel) { midi.addEvent (MidiMessage::allNotesOff (lastChannel), 0); lastChannel = s.channel; }
@@ -318,6 +322,7 @@ void OmiAudioProcessor::applyFactoryPreset (int index)
     const auto& p = getFactoryPreset (index);
     setParamValue ("sens", p.sens); setParamValue ("dyn", p.dyn);
     setParamValue ("bend", (float) p.bend); setParamValue ("trans", (float) p.trans);
+    if (p.lowest >= 0) setParamValue ("lowest", (float) p.lowest);
     currentPreset = jlimit (0, getNumFactoryPresets() - 1, index);
     ++presetCounter;
 }
@@ -328,7 +333,7 @@ File OmiAudioProcessor::getUserPresetFile()
              .getChildFile (nhd::folderName()).getChildFile ("Omi").getChildFile ("UserPresets.xml");
 }
 
-static const char* presetIds[] = { "sens", "dyn", "bend", "trans", "feel", "lowest", "fold" };
+static const char* presetIds[] = { "sens", "dyn", "bend", "trans", "feel", "lowest", "fold", "octHold" };
 
 bool OmiAudioProcessor::saveUserPreset (int slot)
 {
