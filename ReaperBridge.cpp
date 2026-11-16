@@ -65,6 +65,14 @@ struct ReaperBridge::Impl
     std::vector<void*> before;
     void* watchSrc = nullptr;
     double watchUntil = 0.0;
+    void* hideTrack = nullptr;            // fenetres FX de l'instrument fermees d'office (inutiles : Omi joue l'instrument)
+    double hideUntil = 0.0;
+    void hideWindows (void* t)
+    {
+        const int n = TrackFX_GetCount (t);
+        for (int i = 0; i < n; ++i) TrackFX_Show (t, i, 2);     // fenetre flottante du plugin
+        TrackFX_Show (t, 0, 0);                                  // fenetre de la chaine FX
+    }
 
     template <typename F> void get (F& f, const char* name)
     {
@@ -196,7 +204,7 @@ bool ReaperBridge::createInstrumentTrack (const juce::String& instrument)
         if (m.PreventUIRefresh) m.PreventUIRefresh (-1);
         if (m.TrackList_AdjustWindows) m.TrackList_AdjustWindows (false);
         if (m.Undo_EndBlock2) m.Undo_EndBlock2 (proj, "Omi: create MIDI instrument track", -1);
-        if (loaded) { m.SetOnlyTrackSelected (dst); m.TrackFX_Show (dst, 0, 3); return true; }
+        if (loaded) { m.SetOnlyTrackSelected (dst); m.hideWindows (dst); m.hideTrack = dst; m.hideUntil = juce::Time::getMillisecondCounterHiRes() + 2500.0; return true; }
         if (dst != nullptr)
         {
             // instrument introuvable : piste vide reliee, fenetre de choix de REAPER sur cette piste
@@ -253,6 +261,11 @@ void ReaperBridge::poll()
 {
    #if JucePlugin_Build_VST3
     auto& m = *impl;
+    if (m.hideTrack != nullptr)
+    {
+        if (available() && juce::Time::getMillisecondCounterHiRes() < m.hideUntil) m.hideWindows (m.hideTrack);
+        else m.hideTrack = nullptr;
+    }
     if (m.watchSrc == nullptr) return;
     if (! available() || juce::Time::getMillisecondCounterHiRes() > m.watchUntil) { m.watchSrc = nullptr; return; }
     void* proj = m.project();
@@ -266,6 +279,8 @@ void ReaperBridge::poll()
         wire (m.watchSrc, t);
         if (m.TrackList_AdjustWindows) m.TrackList_AdjustWindows (false);
         if (m.Undo_EndBlock2) m.Undo_EndBlock2 (proj, "Omi: route MIDI to instrument", -1);
+        m.hideWindows (t);
+        m.hideTrack = t; m.hideUntil = juce::Time::getMillisecondCounterHiRes() + 2500.0;
         m.watchSrc = nullptr;
         return;
     }

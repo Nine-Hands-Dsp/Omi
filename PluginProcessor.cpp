@@ -134,7 +134,7 @@ void OmiAudioProcessor::timerCallback()
 
     // REAPER : Omi vient d'etre insere (pas recharge avec un projet) -> la piste d'instrument est creee d'office,
     // avec le dernier instrument utilise s'il est connu, sinon le navigateur d'effets s'ouvre pour le choisir
-    if (++pollTicks >= 15) { pollTicks = 0; reaperBridge.poll(); }   // piste choisie dans la fenetre de REAPER -> reliee a Omi
+    if (++pollTicks >= 6) { pollTicks = 0; reaperBridge.poll(); }   // piste choisie dans la fenetre de REAPER -> reliee a Omi
     if (autoTrackTicks > 0 && --autoTrackTicks == 0)
         if (! restoredFromState && omi::ReaperBridge::autoCreate() && reaperBridge.available() && reaperBridge.receivers().isEmpty())
             reaperBridge.createInstrumentTrack ({});        // fenetre de choix de l'instrument de REAPER

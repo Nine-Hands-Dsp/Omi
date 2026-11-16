@@ -35,9 +35,11 @@ virtuel (VST de basse, synthé…) dans Reaper. Monophonique, pensé pour les 7 
 
 À la main : bouton **ROUTE** de la piste de l'instrument > *Add new receive* > piste guitare, **Audio : None**, **MIDI : All → All**.
 
-**Tessiture du VST de basse** : la plupart des basses virtuelles s'arrêtent à B0 (basse 5 cordes) ou E1 (4 cordes). Une 8 cordes
-transposée de −12 descend plus bas (G#1 joué → G#0 envoyé) : clic droit > *Lowest MIDI note out* (par défaut **B0**) remonte d'une
-octave toute note qui tomberait sous cette limite, pour que le VST la joue. *Off* envoie toutes les notes telles quelles.
+**Tessiture du VST de basse** : la plupart des basses virtuelles s'arrêtent à B0 (basse 5 cordes) ou E1 (4 cordes). Avec
+*Lowest MIDI note out* (par défaut **B0**), si votre corde la plus grave (*Lowest note*), transposée par TRANS, tomberait sous
+cette limite, **tout le jeu** monte d'une octave : l'ordre des cordes est toujours respecté (la corde de D reste plus aiguë
+que celle de G). Ex. 7 cordes en Sol, Lowest note G1, TRANS −12 : G1 − 12 = G0 est sous B0, Omi joue donc à la hauteur réelle.
+*Off* applique TRANS tel quel.
 
 Variante : mettre le VST de basse directement après Omi sur la piste guitare (le MIDI d'Omi descend la chaîne) ;
 clic droit > *Guitar audio* > *Mute* pour ne garder que l'instrument.
@@ -97,6 +99,7 @@ Bass Mono · Bass Bend · 8 Strings Sub · Unison · Synth Lead · Octave Up Pad
 
 ## Versions
 
+- **1.0.4** (16 nov. 2026) : *Lowest MIDI note out* décale tout le jeu d'une octave au lieu de remonter les notes une par une (la corde de D sortait plus grave que celle de G) ; les fenêtres FX de l'instrument ne s'ouvrent plus après la création de la piste.
 - **1.0.3** (16 nov. 2026) : la fenêtre de choix d'instrument de REAPER s'ouvre bien (Insert virtual instrument on new track) et la piste créée est reliée automatiquement à Omi ; caractères spéciaux (·, ±, →) corrigés sous Windows.
 - **1.0.2** (16 nov. 2026) : détection plus rapide et plus sûre au passage d'une corde à l'autre (analyse limitée à ce qui suit l'attaque, fenêtre 0,8 période, attaques mieux repérées, Play feel Fast fiabilisé) ; plus de corde prise pour une plus grave (correction d'octave prudente, *Lowest note* G1 et E1, E1 par défaut) ; piste MIDI créée d'office à l'insertion d'Omi dans REAPER.
 - **1.0.1** (16 nov. 2026) : *Lowest MIDI note out* (B0 par défaut : les notes sous la tessiture du VST de basse remontent d'une octave) ; dans REAPER, création en un clic de la piste d'instrument qui reçoit le MIDI d'Omi (`ReaperBridge.cpp`, interface IReaperHostApplication).

@@ -1,4 +1,5 @@
 // Captures PNG de la fenetre reelle d'Omi (meme code que le plugin) + test de bout en bout (audio -> MIDI).
+#include <vector>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "BinaryData.h"
@@ -41,17 +42,22 @@ int main (int argc, char** argv)
 
     proc.applyFactoryPreset (0);                // Bass Mono : -12
     int ok = 0, tot = 0;
-    for (int fold : { 0, 1 })                   // Off, puis B0 (basse 5 cordes) : les notes sous B0 remontent d'une octave
-    for (int n : { 32, 30, 28, 26, 21, 20, 40, 52 })
+    for (int fold : { 0, 1 })
     {
+        // fold 0 : Off, accordages tres bas (Lowest G#0), toutes les notes -12
+        // fold 1 : B0 + 7 cordes en Sol (Lowest G1) : G1 - 12 = G0 sous B0 -> tout le jeu remonte d'une octave (D2 reste au-dessus de G1)
         proc.setParamValue ("fold", (float) fold);
-        proc.setParamValue ("lowest", 5.0f);   // G#0 : accordages tres bas (D1, A0, G#0 joues)
-        int cnt = 0, last = -1;
-        play (n, 0.6, 0.4f, cnt, last);
-        int want = n - 12; if (fold == 1) while (want < 23) want += 12;
-        ++tot; if (cnt == 1 && last == want) ++ok;
-        std::printf ("fold %d : joue %s -> %d note(s), derniere %s (attendu %s)\n", fold, OmiAudioProcessor::noteName (n).toRawUTF8(), cnt, OmiAudioProcessor::noteName (last).toRawUTF8(), OmiAudioProcessor::noteName (want).toRawUTF8());
-        silence (0.1);
+        proc.setParamValue ("lowest", fold == 0 ? 5.0f : 2.0f);
+        const std::vector<int> notes = fold == 0 ? std::vector<int> { 32, 30, 28, 26, 21, 20, 40, 52 } : std::vector<int> { 31, 38, 43, 36, 33, 31, 38 };
+        for (int n : notes)
+        {
+            int cnt = 0, last = -1;
+            play (n, 0.6, 0.4f, cnt, last);
+            const int want = fold == 0 ? n - 12 : n;
+            ++tot; if (cnt == 1 && last == want) ++ok;
+            std::printf ("fold %d : joue %s -> %d note(s), derniere %s (attendu %s)\n", fold, OmiAudioProcessor::noteName (n).toRawUTF8(), cnt, OmiAudioProcessor::noteName (last).toRawUTF8(), OmiAudioProcessor::noteName (want).toRawUTF8());
+            silence (0.1);
+        }
     }
     std::printf ("bout en bout : %d / %d\n", ok, tot);
 
