@@ -100,7 +100,7 @@ public:
 
     enum LearnType { learnContinuous, learnFootswitch };
     struct LearnDef { const char* id; const char* name; int type; };
-    static constexpr int numLearn = 5;              // 0-3 potards, 4 footswitch
+    static constexpr int numLearn = 6;              // 0-3 potards, 4 footswitch, 5 son de la guitare (dry)
     static const LearnDef& learnDef (int i);
     std::atomic<int> ccMap[numLearn];
     std::atomic<int> learnTarget { -1 };

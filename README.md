@@ -26,12 +26,14 @@ virtuel (VST de basse, synthé…) dans Reaper. Monophonique, pensé pour les 7 
 1. Piste **guitare** : insérer Omi en premier (il lui faut le son direct de la guitare).
 2. **À l'insertion d'Omi**, environ une seconde après, REAPER ouvre sa fenêtre **Insert virtual instrument on new track** :
    choisir le VST d'instrument (basse, synthé...). La piste créée juste sous celle d'Omi est aussitôt reliée à son MIDI
-   (receive **Audio : None**, **MIDI : All → All**, armement retiré) et nommée « Omi - <instrument> ». Rien n'est créé quand
+   (receive **Audio : None**, **MIDI : All → All**, armement retiré) et nommée « Omi - <instrument> » ; la fenêtre de l'instrument s'ouvre seule (pas la chaîne FX). Rien n'est créé quand
    un projet est rechargé. **Clic sur l'écran d'Omi** : créer une autre piste (*Create MIDI track + choose instrument...*),
    la recréer directement avec le dernier instrument (*Create MIDI track with <instrument>*), ouvrir l'instrument d'une
    piste déjà reliée, ou désactiver la création d'office. (Cette fenêtre de REAPER s'ouvre là où REAPER l'a placée la
    dernière fois, parfois sur un autre écran.)
-3. Jouer : la LED bleue s'allume à chaque note envoyée, l'écran montre la note jouée et la note MIDI envoyée.
+3. **Couper le son de la guitare (dry)** pour n'entendre que l'instrument (wet) : clic sur l'écran > décocher *Dry guitar sound*
+   (ou clic droit > *Guitar audio* > *Mute*, ou un footswitch MIDI : *MIDI Learn > Dry guitar*). L'écran affiche alors **DRY OFF**.
+4. Jouer : la LED bleue s'allume à chaque note envoyée, l'écran montre la note jouée et la note MIDI envoyée.
 
 À la main : bouton **ROUTE** de la piste de l'instrument > *Add new receive* > piste guitare, **Audio : None**, **MIDI : All → All**.
 
@@ -85,7 +87,7 @@ Monophonique : un micro ordinaire mélange les six (sept, huit) cordes, les acco
 
 ## MIDI entrant
 
-**Aucun CC assigné par défaut** : clic droit sur une commande > *MIDI Learn* (Sens, Dyn, Bend, Trans, Footswitch). Les CC non assignés
+**Aucun CC assigné par défaut** : clic droit sur une commande > *MIDI Learn* (Sens, Dyn, Bend, Trans, Footswitch, Dry guitar). Les CC non assignés
 et les autres messages passent vers l'instrument suivant. Program Change 1-10 = presets d'usine.
 
 ## Presets d'usine
@@ -100,6 +102,7 @@ et les autres messages passent vers l'instrument suivant. Program Change 1-10 = 
 
 ## Versions
 
+- **1.0.6** (16 nov. 2026) : après la création de la piste, la fenêtre de l'instrument s'ouvre seule (plus la chaîne FX) ; son de la guitare (dry) coupable depuis l'écran ou par MIDI Learn (*Dry guitar*), indication DRY OFF.
 - **1.0.5** (16 nov. 2026) : *Octave hold* (la note qui sonne est gardée quand on joue son octave par-dessus, `tests/octave_test.cpp`) ; preset **Neutral** (tous les potards à midi) chargé à l'ouverture, preset **7 Strings in G** (Lowest note G1) ; les presets 7 et 8 cordes règlent aussi Lowest note.
 - **1.0.4** (16 nov. 2026) : *Lowest MIDI note out* décale tout le jeu d'une octave au lieu de remonter les notes une par une (la corde de D sortait plus grave que celle de G) ; les fenêtres FX de l'instrument ne s'ouvrent plus après la création de la piste.
 - **1.0.3** (16 nov. 2026) : la fenêtre de choix d'instrument de REAPER s'ouvre bien (Insert virtual instrument on new track) et la piste créée est reliée automatiquement à Omi ; caractères spéciaux (·, ±, →) corrigés sous Windows.

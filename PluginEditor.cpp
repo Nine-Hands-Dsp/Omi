@@ -352,6 +352,7 @@ void OmiAudioProcessorEditor::timerCallback()
     s.chan = roundToInt (proc.rawAt (OmiAudioProcessor::rChannel));
     s.bendIdx = roundToInt (proc.rawAt (OmiAudioProcessor::rBend));
     s.active = active ? 1 : 0;
+    s.dryOff = proc.rawAt (OmiAudioProcessor::rThru) > 0.5f ? 1 : 0;
     scr = s;
     if (! (scr == drawnScr)) { drawnScr = scr; askRepaint (scaled (layout::screenRect)); }
 
@@ -402,6 +403,8 @@ void OmiAudioProcessorEditor::drawScreen (Graphics& g)
     const float half = r.getWidth() * 0.5f;
     const Colour off = scrDim;
     text ("IN", r.getX() + pad, r.getY() + 8.0f, 60.0f, 16.0f, Justification::centredLeft, scrGrey, font (0, 15.0f));
+    if (s.dryOff)      // son de la guitare coupe : seul l'instrument est entendu
+        text ("DRY OFF", r.getX() + pad + 30.0f, r.getY() + 8.0f, 120.0f, 16.0f, Justification::centredLeft, Colour (0xffffb45a), font (0, 15.0f));
     text ("MIDI OUT  CH " + String (s.chan), r.getRight() - pad - 200.0f, r.getY() + 8.0f, 200.0f, 16.0f, Justification::centredRight, scrGrey, font (0, 15.0f));
 
     // note jouee
@@ -682,6 +685,7 @@ PopupMenu OmiAudioProcessorEditor::buildContextMenu (int learnIdx)
     {
         const String name = OmiAudioProcessor::learnDef (learnIdx).name;
         addHeader (menu, menuLnf.f, learnIdx < 4 ? icoKnob : icoPedal, accent, name, "MIDI: " + ccText (learnIdx));
+        if (learnIdx == 5) { menu.addItem (393, "Dry guitar sound (uncheck = instrument only)", true, proc.rawAt (OmiAudioProcessor::rThru) < 0.5f); menu.addSeparator(); }
         menu.addItem (1000 + learnIdx, "MIDI Learn: " + name, true, lt == learnIdx);
         menu.addItem (1100 + learnIdx, "Clear MIDI: " + name, proc.ccMap[learnIdx].load() >= 0);
         menu.addItem (1200, "Cancel MIDI learn", lt >= 0);
@@ -807,11 +811,14 @@ void OmiAudioProcessorEditor::addReaperItems (PopupMenu& menu)
         menu.addItem (391, "Create MIDI track with " + last.fromFirstOccurrenceOf (": ", false, false));
     menu.addItem (392, "Create the MIDI track automatically when Omi is inserted", true, omi::ReaperBridge::autoCreate());
     menu.addSeparator();
+    menu.addItem (393, "Dry guitar sound (uncheck = instrument only)", true, proc.rawAt (OmiAudioProcessor::rThru) < 0.5f);
+    menu.addSeparator();
 }
 
 bool OmiAudioProcessorEditor::handleReaperItem (int r)
 {
     auto& rb = proc.reaperBridge;
+    if (r == 393) { proc.setParamValue ("thru", proc.rawAt (OmiAudioProcessor::rThru) > 0.5f ? 0.0f : 1.0f); return true; }
     if (r == 390 || r == 391)
     {
         const bool ok = rb.createInstrumentTrack (r == 391 ? omi::ReaperBridge::lastInstrument() : String());

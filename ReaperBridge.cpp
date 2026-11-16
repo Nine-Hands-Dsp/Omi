@@ -65,13 +65,12 @@ struct ReaperBridge::Impl
     std::vector<void*> before;
     void* watchSrc = nullptr;
     double watchUntil = 0.0;
-    void* hideTrack = nullptr;            // fenetres FX de l'instrument fermees d'office (inutiles : Omi joue l'instrument)
+    void* hideTrack = nullptr;            // apres creation : chaine FX fermee, fenetre de l'instrument seule (comme REAPER l'ouvre d'habitude)
     double hideUntil = 0.0;
     void hideWindows (void* t)
     {
-        const int n = TrackFX_GetCount (t);
-        for (int i = 0; i < n; ++i) TrackFX_Show (t, i, 2);     // fenetre flottante du plugin
-        TrackFX_Show (t, 0, 0);                                  // fenetre de la chaine FX
+        TrackFX_Show (t, 0, 0);                                  // fenetre de la chaine FX : fermee
+        if (TrackFX_GetCount (t) > 0) TrackFX_Show (t, 0, 3);    // fenetre de l'instrument (Kontakt...) : ouverte, flottante
     }
 
     template <typename F> void get (F& f, const char* name)

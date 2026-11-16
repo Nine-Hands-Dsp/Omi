@@ -44,6 +44,7 @@ const OmiAudioProcessor::LearnDef& OmiAudioProcessor::learnDef (int i)
         { "bend",   "Bend",       learnContinuous },
         { "trans",  "Trans",      learnContinuous },
         { "active", "Footswitch", learnFootswitch },
+        { "thru",   "Dry guitar", learnFootswitch },   // parametre « Guitar Audio » : 0 = Thru (dry entendu), 1 = Mute
     };
     return defs[jlimit (0, numLearn - 1, i)];
 }
@@ -213,6 +214,15 @@ void OmiAudioProcessor::handleMidi (MidiBuffer& midi, MidiBuffer& thru)
                 int& prev = prevFsCC[ctl];
                 const float cur = pendingSet[ctl].load() ? pendingValue[ctl].load() : rawAt (rActive);
                 if (latching)                   setParamFromAudio (ctl, v >= 64 ? 1.0f : 0.0f);
+                else if (v >= 64 && prev < 64)  setParamFromAudio (ctl, cur > 0.5f ? 0.0f : 1.0f);
+                prev = v;
+            }
+            else if (ctl == 5)
+            {
+                // son de la guitare (dry) : a accrochage CC >= 64 = entendu, sinon coupe ; momentane = bascule
+                int& prev = prevFsCC[ctl];
+                const float cur = pendingSet[ctl].load() ? pendingValue[ctl].load() : rawAt (rThru);
+                if (latching)                   setParamFromAudio (ctl, v >= 64 ? 0.0f : 1.0f);
                 else if (v >= 64 && prev < 64)  setParamFromAudio (ctl, cur > 0.5f ? 0.0f : 1.0f);
                 prev = v;
             }

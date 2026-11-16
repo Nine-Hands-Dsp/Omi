@@ -102,10 +102,10 @@ private:
     // ecran : valeurs affichees (redessin seulement si elles changent)
     struct ScreenState
     {
-        int inNote = -1, cents = 0, outNote = -1, vel = 0, bend = 8192, level = 0, sens = 0, chan = 1, bendIdx = 0, active = 1;
+        int inNote = -1, cents = 0, outNote = -1, vel = 0, bend = 8192, level = 0, sens = 0, chan = 1, bendIdx = 0, active = 1, dryOff = 0;
         bool operator== (const ScreenState& o) const
         { return inNote == o.inNote && cents == o.cents && outNote == o.outNote && vel == o.vel && bend == o.bend && level == o.level
-                 && sens == o.sens && chan == o.chan && bendIdx == o.bendIdx && active == o.active; }
+                 && sens == o.sens && chan == o.chan && bendIdx == o.bendIdx && active == o.active && dryOff == o.dryOff; }
     } scr, drawnScr;
     float meterDb = -120.0f, heldIn = -1.0f;
     int holdTicks = 0;
