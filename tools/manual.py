@@ -15,7 +15,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHOTS, OUT = sys.argv[1], sys.argv[2]
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 TMP = os.path.join(ROOT, "tools", "manual_assets"); os.makedirs(TMP, exist_ok=True)
 FONTS = os.path.join(ROOT, "assets", "fonts")
 for n, f in (("Pop", "Poppins-Regular"), ("PopL", "Poppins-Light"), ("PopM", "Poppins-Medium"), ("PopB", "Poppins-Bold"),
@@ -142,7 +142,7 @@ T = {
  inst_t="2. Installation",
  inst=[("Windows", "Cliquez sur le bouton <b>Télécharger Windows</b> de la page GitHub Nine-Hands-Dsp/omi (il donne toujours la dernière version), décompressez <b>Omi-VST3-Windows.zip</b> et copiez le dossier <b>Omi.vst3</b> dans <b>C:\\Program Files\\Common Files\\VST3</b>."),
        ("macOS", "Cliquez sur <b>Télécharger macOS</b>, décompressez <b>Omi-VST3-macOS.zip</b> et copiez <b>Omi.vst3</b> dans <b>~/Bibliothèque/Audio/Plug-Ins/VST3</b>. Si macOS le bloque, tapez <b>xattr -cr ~/Library/Audio/Plug-Ins/VST3/Omi.vst3</b> dans le Terminal. Le binaire est universel (Apple Silicon et Intel)."),
-       ("Reaper : brancher Omi sur un VST de basse", "Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <b>Re-scan</b> ; le plugin apparaît sous le nom <b>Omi (NINE HANDS | DSP)</b>. Mettez Omi en tête de la piste guitare, puis <b>cliquez sur son écran</b> &gt; <b>Create MIDI track + choose instrument...</b> : Omi crée juste en dessous une piste « Omi - MIDI » qui reçoit son MIDI (Audio : None, MIDI : All → All) et ouvre le navigateur d'effets de REAPER. Il ne reste qu'à choisir le VST de basse. La fois suivante, <b>Create MIDI track with &lt;instrument&gt;</b> recrée la piste directement avec le dernier instrument utilisé. Les pistes qui reçoivent déjà le MIDI d'Omi sont listées dans ce menu (clic = ouvrir l'instrument). Ctrl+Z annule la création. Le même menu est en tête du clic droit."),
+       ("Reaper : brancher Omi sur un VST de basse", "Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <b>Re-scan</b> ; le plugin apparaît sous le nom <b>Omi (NINE HANDS | DSP)</b>. Mettez Omi en tête de la piste guitare : environ une seconde après, Omi crée <b>d'office</b> juste en dessous une piste « Omi - MIDI » qui reçoit son MIDI (Audio : None, MIDI : All → All) et ouvre le navigateur d'effets de REAPER. Il ne reste qu'à choisir le VST de basse ; les fois suivantes, la piste est créée directement avec le dernier instrument utilisé. Rien n'est créé quand un projet est rechargé. Un <b>clic sur l'écran</b> d'Omi ouvre le même menu : créer une autre piste (<b>Create MIDI track...</b>), ouvrir l'instrument d'une piste qui reçoit déjà le MIDI d'Omi, ou décocher <b>Create the MIDI track automatically when Omi is inserted</b>. Ctrl+Z annule la création."),
        ("À la main", "Bouton <b>ROUTE</b> de la piste de l'instrument &gt; <b>Add new receive</b> &gt; piste guitare, réglé sur <b>Audio : None</b> et <b>MIDI : All → All</b>. Variante : placez le VST de basse juste après Omi sur la piste guitare (le MIDI d'Omi descend la chaîne d'effets) et choisissez clic droit &gt; <b>Guitar audio</b> &gt; <b>Mute</b> pour n'entendre que l'instrument.")],
  ov_t="3. Vue d'ensemble de l'interface",
  ov_rows=[["#", "Commande", "Rôle"],
@@ -166,8 +166,8 @@ T = {
  fs=["<b>Écran</b> : à gauche, la note reconnue (nom, octave et écart en cents, avec une échelle de −50 à +50 cents ; le point est bleu quand la note est juste à 5 cents près) ; à droite, la note MIDI envoyée, son numéro et sa vélocité, puis la plage de bend. En bas, le vu-mètre de l'entrée et le repère du seuil SENS. En haut à droite, le canal MIDI de sortie.",
      "<b>Footswitch</b> : il bascule dès l'appui et le bouton s'assombrit tant qu'on appuie. À l'arrêt (BYPASS sur l'écran), Omi n'envoie plus rien et coupe la note en cours (All Notes Off) : aucune note ne reste bloquée.",
      "<b>LED</b> : bleue tant qu'une note MIDI est tenue, en fondu ; la façade autour et le flanc de l'écrou du footswitch reçoivent sa lumière (clic droit &gt; <b>Glow intensity</b> : 25 / 50 / 75 / 100 %).",
-     "<b>Play feel</b> (clic droit) : <b>Fast</b> confirme une nouvelle note sur 2 analyses (latence minimale), <b>Normal</b> sur 3, <b>Stable</b> sur 5 avec une analyse plus exigeante (le moins de fausses notes). Un saut d'octave demande toujours deux fois plus de confirmations.",
-     "<b>Lowest note</b> (clic droit) : la note la plus grave suivie : E2 (6 cordes), B1 (7 cordes), F#1 (8 cordes) ou A0 (8 cordes, accordages très bas, réglage par défaut). Choisir la note de votre corde la plus grave limite encore les erreurs d'octave.",
+     "<b>Play feel</b> (clic droit) : <b>Fast</b> confirme une nouvelle note sur 2 analyses (latence minimale, conseillé pour le jeu rapide), <b>Normal</b> sur 3, <b>Stable</b> sur 5 avec une analyse plus exigeante (le moins de fausses notes). Une analyse très nette demande une confirmation de moins ; un saut d'octave en demande deux fois plus. À chaque nouvelle attaque, Omi n'analyse que ce qui la suit : en passant d'une corde à l'autre, la corde précédente ne fausse plus la note.",
+     "<b>Lowest note</b> (clic droit) : la note la plus grave cherchée : E2 (6 cordes), B1 (7 cordes), G1 (7 cordes en Sol), F#1 (8 cordes), E1 (8 cordes en drop E, réglage par défaut) ou G#0 (accordages très bas). <b>Réglez-le sur votre corde la plus grave</b> : aucune note n'étant cherchée plus bas, une corde plus aiguë ne peut plus être prise pour une plus grave.",
      "<b>Lowest MIDI note out</b> (clic droit) : la plupart des basses virtuelles s'arrêtent à B0 (basse 5 cordes) ou E1 (4 cordes). Une 8 cordes transposée de −12 descend plus bas (G#1 joué → G#0 envoyé) et le VST reste muet. Avec <b>B0</b> (par défaut) ou <b>E1</b>, toute note qui tomberait sous cette limite remonte d'une octave ; <b>A0</b> pour les instruments à tessiture étendue, <b>Off</b> pour envoyer toutes les notes telles quelles.",
      "<b>MIDI out channel</b> (clic droit) : canal 1 à 16. <b>Guitar audio</b> : Thru (la guitare continue de passer, par défaut) ou Mute (seul le MIDI sort)."],
  midi_t="6. MIDI entrant",
@@ -190,13 +190,13 @@ T = {
  tips=["Placez Omi <b>en tête</b> de la piste guitare, avant les saturations et l'ampli (Ampire, Impulse) : il lui faut le son direct de la guitare. Un noise gate placé avant n'est pas utile : le seuil SENS en fait office.",
        "Jouez <b>proprement, une note à la fois</b>, en étouffant la corde précédente : deux cordes qui sonnent ensemble brouillent la détection. Le micro manche donne une fondamentale plus forte, donc un suivi plus rapide et plus sûr sur les cordes graves.",
        "Sur une 7 ou 8 cordes, réglez <b>Lowest note</b> sur votre corde la plus grave et gardez <b>Play feel</b> sur Normal ; passez sur Stable si des notes parasites apparaissent, sur Fast pour un jeu rapide dans les médiums.",
-       "Il faut au moins deux périodes d'une corde pour en connaître la hauteur : comptez environ 15 à 30 ms dans les médiums et les aigus, 45 à 60 ms sur F#1 / E1 / D1 et environ 80 ms sur A0. Attaquez légèrement en avance sur les cordes les plus graves, comme avec un convertisseur matériel."],
+       "Il faut une à deux périodes d'une corde pour en connaître la hauteur : comptez environ 15 à 30 ms dans les médiums et les aigus, environ 40 ms en jeu rapide sur les cordes graves d'une 7 cordes en Sol et environ 80 ms sur A0. Étouffez la corde précédente quand vous changez de corde (paume ou main gauche) : deux cordes qui sonnent ensemble forment un accord, qu'un micro ordinaire ne permet pas de séparer."],
  tech_t="10. Caractéristiques techniques",
  tech=[["Format", "VST3 avec sortie MIDI (Windows 64 bits, macOS universel)"], ["Entrée", "Mono ou stéréo (les voies sont additionnées pour l'analyse)"],
        ["Sortie MIDI", "Note On / Off, vélocité, pitch bend (lissé), RPN 0 (plage de bend), All Notes Off ; un canal (1-16)"],
-       ["Détection", "monophonique ; passe-haut 18 Hz, passe-bas Butterworth 6e ordre à 1,4 kHz, décimation à ≈ 8 kHz ; méthode McLeod (NSDF) à fenêtre par décalage (1,25 période, 12 ms min.), interpolation parabolique, correction d'octave, médiane glissante, confirmations, hystérésis 0,6 demi-ton"],
-       ["Plage", "jusqu'à A0 (27,5 Hz) et environ 1,5 kHz"],
-       ["Latence", "≈ 15–30 ms (médiums, aigus), 45–60 ms (F#1 à D1), ≈ 80 ms (A0) ; aucune latence audio"],
+       ["Détection", "monophonique ; passe-haut 18 Hz, passe-bas Butterworth 6e ordre à 1,4 kHz, décimation à ≈ 8 kHz ; méthode McLeod (NSDF) à fenêtre par décalage (0,8 période, 12 ms min.), analyse limitée à ce qui suit chaque attaque, interpolation parabolique, correction d'octave prudente, médiane glissante, confirmations, hystérésis 0,6 demi-ton"],
+       ["Plage", "de la note réglée dans Lowest note (jusqu'à G#0, 26 Hz) à environ 1,5 kHz"],
+       ["Latence", "≈ 15–30 ms (médiums, aigus), ≈ 40 ms (cordes graves en jeu rapide), ≈ 80 ms (A0) ; aucune latence audio"],
        ["Processeur", "environ 2 à 3 % d'un cœur à 48 kHz"],
        ["MIDI entrant", "MIDI Learn sur les 5 commandes (rien d'assigné par défaut), CC 14 bits, Program Change 1-8, autres messages transmis"],
        ["Fenêtre", "Plugin size 60 % / 75 % / 100 %, jusqu'à 150 %, jamais sous 60 % ; anti-gel v2 sous Windows"]]),

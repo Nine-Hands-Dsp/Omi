@@ -28,6 +28,8 @@ public:
     void showReceiver (int index);
 
     static juce::String lastInstrument();
+    static bool autoCreate();                      // creer la piste d'office a l'insertion d'Omi (reglage commun, oui par defaut)
+    static void setAutoCreate (bool on);
     static void setLastInstrument (const juce::String& name);
 
 private:

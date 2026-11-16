@@ -225,7 +225,7 @@ String OmiAudioProcessorEditor::buildStatusLine() const
     if (id == "trans")   { const int t = roundToInt (v); return "transpose  " + String (t > 0 ? "+" : "") + String (t) + " st"; }
     if (id == "feel")    return "play feel  " + OmiAudioProcessor::feelNames()[jlimit (0, 2, roundToInt (v))].toLowerCase();
     if (id == "channel") return "midi channel  " + String (roundToInt (v));
-    if (id == "lowest")  return "lowest note  " + OmiAudioProcessor::lowestNames()[jlimit (0, 3, roundToInt (v))].upToFirstOccurrenceOf (" ", false, false);
+    if (id == "lowest")  return "lowest note  " + OmiAudioProcessor::lowestNames()[jlimit (0, OmiAudioProcessor::numLowest - 1, roundToInt (v))].upToFirstOccurrenceOf (" ", false, false);
     if (id == "fold")    { const int n = OmiAudioProcessor::foldNote (roundToInt (v)); return n < 0 ? String ("lowest midi note  free") : "lowest midi note  " + OmiAudioProcessor::noteName (n); }
     if (id == "thru")    return v > 0.5f ? "guitar audio muted" : "guitar audio thru";
     return v > 0.5f ? "midi on" : "bypass";
@@ -711,7 +711,7 @@ PopupMenu OmiAudioProcessorEditor::buildContextMenu (int learnIdx)
     for (int i = 0; i < 3; ++i) feel.addItem (50 + i, feelHelp[i], true, fNow == i);
     menu.addSubMenu ("Play feel", feel);
     const int lNow = roundToInt (proc.rawAt (OmiAudioProcessor::rLowest));
-    for (int i = 0; i < 4; ++i) lowest.addItem (60 + i, OmiAudioProcessor::lowestNames()[i], true, lNow == i);
+    for (int i = 0; i < OmiAudioProcessor::numLowest; ++i) lowest.addItem (60 + i, OmiAudioProcessor::lowestNames()[i], true, lNow == i);
     menu.addSubMenu ("Lowest note", lowest);
     const int cNow = roundToInt (proc.rawAt (OmiAudioProcessor::rChannel));
     for (int i = 1; i <= 16; ++i) chan.addItem (70 + i, "Channel " + String (i), true, cNow == i);
@@ -772,7 +772,7 @@ void OmiAudioProcessorEditor::showContextMenu (int learnIdx)
             else if (r == NineHandsWindow::idMomentary) pr.setParamValue ("midiFsMode", 1.0f);
             else if (r >= 40 && r <= 43) pr.setParamValue ("fold", (float) (r - 40));
             else if (r >= 50 && r <= 52) pr.setParamValue ("feel", (float) (r - 50));
-            else if (r >= 60 && r <= 63) pr.setParamValue ("lowest", (float) (r - 60));
+            else if (r >= 60 && r < 60 + OmiAudioProcessor::numLowest) pr.setParamValue ("lowest", (float) (r - 60));
             else if (r >= 71 && r <= 86) pr.setParamValue ("channel", (float) (r - 70));
             else if (r == 90 || r == 91) pr.setParamValue ("thru", (float) (r - 90));
             else if (r >= 100 && r < 200) pr.applyFactoryPreset (r - 100);
@@ -802,6 +802,7 @@ void OmiAudioProcessorEditor::addReaperItems (PopupMenu& menu)
     const auto last = omi::ReaperBridge::lastInstrument();
     if (last.isNotEmpty())
         menu.addItem (391, "Create MIDI track with " + last.fromFirstOccurrenceOf (": ", false, false));
+    menu.addItem (392, "Create the MIDI track automatically when Omi is inserted", true, omi::ReaperBridge::autoCreate());
     menu.addSeparator();
 }
 
@@ -816,6 +817,7 @@ bool OmiAudioProcessorEditor::handleReaperItem (int r)
         statusUntil = jmax (statusUntil, learnLineUntil);
         return true;
     }
+    if (r == 392) { omi::ReaperBridge::setAutoCreate (! omi::ReaperBridge::autoCreate()); return true; }
     if (r >= 400 && r < 464) { rb.showReceiver (r - 400); return true; }
     return false;
 }

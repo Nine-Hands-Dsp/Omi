@@ -45,6 +45,7 @@ int main (int argc, char** argv)
     for (int n : { 32, 30, 28, 26, 21, 20, 40, 52 })
     {
         proc.setParamValue ("fold", (float) fold);
+        proc.setParamValue ("lowest", 5.0f);   // G#0 : accordages tres bas (D1, A0, G#0 joues)
         int cnt = 0, last = -1;
         play (n, 0.6, 0.4f, cnt, last);
         int want = n - 12; if (fold == 1) while (want < 23) want += 12;

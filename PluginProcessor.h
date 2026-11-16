@@ -77,10 +77,11 @@ public:
     static int bendSemis (int idx) { static const int b[numBendSteps] = { 0, 1, 2, 3, 4, 5, 7, 12, 24 }; return b[juce::jlimit (0, numBendSteps - 1, idx)]; }
     static juce::String bendText (int idx) { const int b = bendSemis (idx); return b == 0 ? juce::String ("CHROMA") : "\xc2\xb1" + juce::String (b); }
     static juce::StringArray feelNames()   { return { "Fast", "Normal", "Stable" }; }
-    static juce::StringArray lowestNames() { return { "E2  (6 strings)", "B1  (7 strings)", "F#1  (8 strings)", "A0  (8 strings, very low tunings)" }; }
+    static juce::StringArray lowestNames() { return { "E2  (6 strings)", "B1  (7 strings)", "G1  (7 strings in G)", "F#1  (8 strings)", "E1  (8 strings, drop E)", "G#0  (very low tunings)" }; }
+    static constexpr int numLowest = 6;
     static juce::StringArray foldNames()   { return { "Off (any note)", "B0  (5-string bass)", "E1  (4-string bass)", "A0  (extended range)" }; }
     static int foldNote (int idx) { static const int n[4] = { -1, 23, 28, 21 }; return n[juce::jlimit (0, 3, idx)]; }
-    static float lowestHz (int idx) { static const float f[4] = { 78.0f, 58.0f, 44.0f, 26.0f }; return f[juce::jlimit (0, 3, idx)]; }
+    static float lowestHz (int idx) { static const float f[numLowest] = { 82.41f, 61.74f, 49.0f, 46.25f, 41.2f, 25.96f }; return f[juce::jlimit (0, numLowest - 1, idx)]; }
     static juce::String noteName (int midi);
 
     // ---- informations pour la fenetre (ecrites par le thread audio, lues par l'interface) ----
@@ -107,6 +108,8 @@ public:
 
     // REAPER : creation de la piste d'instrument qui recoit le MIDI d'Omi
     omi::ReaperBridge reaperBridge;
+    bool restoredFromState = false;
+    int autoTrackTicks = 75;          // ~1,25 s apres l'insertion (timer a 60 Hz)
    #if JucePlugin_Build_VST3
     struct Vst3Ext : juce::VST3ClientExtensions
     {

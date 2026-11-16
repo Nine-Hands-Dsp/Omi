@@ -10,10 +10,12 @@
 // Detection de hauteur renforcee pour les accordages tres graves (7 / 8 cordes, jusqu'a ~25 Hz) :
 //  1. pre-traitement : passe-haut 18 Hz, passe-bas 6e ordre a 1,4 kHz (retire les harmoniques aigues qui trompent
 //     l'analyse), decimation vers ~8-9 kHz ;
-//  2. methode McLeod (NSDF) avec une fenetre propre a chaque decalage (1,25 periode, au moins 12 ms) : une note aigue
-//     est detectee en quelques ms, une note grave dispose de la fenetre dont elle a besoin ;
-//  3. correction d'octave : sur les cordes graves, la fondamentale captee par le micro est faible et l'harmonique 2
-//     domine. Une periode double (ou triple) nettement plus coherente est preferee : pas de note a l'octave du dessus ;
+//  2. methode McLeod (NSDF) avec une fenetre propre a chaque decalage (0,8 periode, au moins 12 ms) : une note aigue
+//     est detectee en quelques ms, une note grave dispose de la fenetre dont elle a besoin ; apres une nouvelle attaque
+//     (passage d'une corde a l'autre), seule la partie qui suit l'attaque est analysee ;
+//  3. correction d'octave prudente : sur les cordes graves, la fondamentale captee par le micro est faible et
+//     l'harmonique 2 domine ; une periode double (ou triple) n'est preferee que si la periode trouvee est peu nette et la
+//     periode double nettement meilleure, jamais sous la note la plus grave reglee (Lowest note) ;
 //  4. stabilisation : mediane glissante des estimations, confirmation sur plusieurs analyses avant une nouvelle note,
 //     saut d'octave exige deux fois plus de confirmations, hysteresis de 0,6 demi-ton entre deux notes ;
 //  5. tenue : une analyse ratee (fin de note, bruit) ne coupe jamais la note ; seule la porte de niveau (seuil SENS
@@ -120,8 +122,9 @@ public:
             slowE = slowE * refCoef + fastE * (1.0f - refCoef);
             if (++snapCount >= (int) (0.005 * fs)) { snapCount = 0; fastPrev2 = fastPrev1; fastPrev1 = fastE; }
             // attaque (nouveau coup de mediator) : energie +6 dB au-dessus de la reference et +5 dB en 10 ms
-            if (fastE > 4.0f * slowE + 1.0e-9f && fastE > 3.0f * fastPrev2 + 1.0e-9f && env > 1.0e-3f && onsetAge > (int) (0.080 * fs))
-                { onsetFlag = true; onsetAge = 0; onsetPeak = -120.0f; }
+            if (fastE > 2.5f * slowE + 1.0e-9f && fastE > 2.0f * fastPrev2 + 1.0e-9f   // +4 dB sur la reference, +3 dB en 10 ms
+                && env > 1.0e-3f && onsetAge > (int) (0.080 * fs))
+                { onsetFlag = true; onsetAge = 0; onsetPeak = -120.0f; sinceOnsetDec = (int) (0.006 * fsd); }   // l'attaque a commence ~6 ms avant d'etre reconnue
             ++onsetAge;
             if (onsetAge < (int) (0.030 * fs)) onsetPeak = std::max (onsetPeak, toDb (env));
 
@@ -132,6 +135,7 @@ public:
                 decCount = 0;
                 ring[writePos] = y;
                 writePos = (writePos + 1) & (ringSize - 1);
+                if (sinceOnsetDec < (1 << 24)) ++sinceOnsetDec;
                 if (++hopCount >= hop)
                 {
                     hopCount = 0;
@@ -173,14 +177,14 @@ private:
         float f0 = 0.0f, clar = 0.0f;
         const bool ok = detect (s, f0, clar);
         clarity = clar;
-        const float minClarity = s.feel == 0 ? 0.55f : (s.feel == 1 ? 0.62f : 0.70f);
+        const float minClarity = s.feel == 0 ? 0.65f : (s.feel == 1 ? 0.62f : 0.70f);
         if (! ok || clar < minClarity) return;                    // analyse ratee : la note en cours est tenue
 
         noteAge += hop * decim;
         if (onsetFlag && note >= 0 && noteAge < (int) (0.120 * fs)) onsetFlag = false;   // pas de re-attaque juste apres une note
         const float midi = 69.0f + 12.0f * std::log2 (f0 / 440.0f);
         // mediane glissante des dernieres estimations
-        const int histLen = s.feel == 0 ? 3 : (s.feel == 1 ? 5 : 7);
+        const int histLen = (s.feel == 0 ? 3 : (s.feel == 1 ? 5 : 7)) * 1;
         if (onsetFlag) histCount = 0;                             // nouvelle attaque : on repart de zero
         for (int k = std::min (histCount, histMax - 1); k > 0; --k) hist[k] = hist[k - 1];
         hist[0] = midi; histCount = std::min (histCount + 1, histMax);
@@ -191,7 +195,8 @@ private:
         const float med = tmp[m / 2];
         detectedMidi = med;
 
-        const int confirmBase = s.feel == 0 ? 2 : (s.feel == 1 ? 3 : 5);
+        int confirmBase = s.feel == 0 ? 2 : (s.feel == 1 ? 3 : 5);
+        if (clar >= 0.90f) confirmBase = std::max (1, confirmBase - 1);
         const int c = (int) std::lround (med);
 
         if (note < 0 || onsetFlag)
@@ -236,28 +241,35 @@ private:
     bool detect (const Settings& s, float& f0, float& clar)
     {
         const int tauMin = std::max (2, (int) std::floor (fsd / 1400.0));
-        const int tauMax = std::min (maxLag - 2, (int) std::ceil (fsd / std::max (20.0f, s.lowestHz * 0.94f)));
-        const int wMin = (int) (0.012 * fsd);
+        const int tauMax = std::min (maxLag - 2, (int) std::ceil (fsd / std::max (20.0f, s.lowestHz * 0.97f)));
+        const int wMin = (int) (12 * 0.001 * fsd);
         // copie lineaire des derniers echantillons (le plus recent en dernier)
-        const int need = std::min (ringSize - 1, (int) (tauMax * 1.25f) + tauMax + 8 + wMin);
+        const int need = std::min (ringSize - 1, (int) (tauMax * 0.8f) + tauMax + 8 + wMin);
         for (int i = 0; i < need; ++i) lin[need - 1 - i] = at (i);
-        const int end = need;                                   // indice apres le dernier echantillon
+        const int end = need;                             // indice apres le dernier echantillon
 
         float best = 0.0f;
         for (int tau = 0; tau <= tauMax + 1; ++tau) nsdf[tau] = 0.0f;
+        // apres une nouvelle attaque, seule la partie qui suit l'attaque est analysee : l'ancienne corde ne trompe plus l'analyse
+        int top = tauMax;
+        const int avail = (note >= 0 && sinceOnsetDec < (int) (0.5 * fsd)) ? sinceOnsetDec + 16 : (1 << 24);
         for (int tau = 1; tau <= tauMax + 1; ++tau)
+        {
+            if (std::max (wMin, (int) (tau * 0.8f)) + tau > avail) { top = std::min (tauMax, tau - 2); break; }
             nsdf[tau] = nsdfAt (tau, end, wMin);
+        }
+        if (top < tauMin + 2) return false;
 
         // maxima cles : un maximum par lobe positif, apres le premier passage sous zero
         int nKeys = 0;
         int t = 1;
-        while (t <= tauMax && nsdf[t] > 0.0f) ++t;              // sortir du lobe du decalage nul
-        while (t <= tauMax)
+        while (t <= top && nsdf[t] > 0.0f) ++t;
+        while (t <= top)
         {
-            while (t <= tauMax && nsdf[t] <= 0.0f) ++t;
+            while (t <= top && nsdf[t] <= 0.0f) ++t;
             int bi = -1; float bv = 0.0f;
-            while (t <= tauMax && nsdf[t] > 0.0f) { if (nsdf[t] > bv) { bv = nsdf[t]; bi = t; } ++t; }
-            if (bi >= tauMin && nKeys < maxKeys) { keyIdx[nKeys++] = bi; best = std::max (best, bv); }
+            while (t <= top && nsdf[t] > 0.0f) { if (nsdf[t] > bv) { bv = nsdf[t]; bi = t; } ++t; }
+            if (bi >= tauMin && (t <= top || top == tauMax) && nKeys < maxKeys) { keyIdx[nKeys++] = bi; best = std::max (best, bv); }
         }
         if (nKeys == 0 || best < 0.3f) return false;
 
@@ -266,14 +278,17 @@ private:
         for (int i = 0; i < nKeys; ++i) if (nsdf[keyIdx[i]] >= k * best) { sel = keyIdx[i]; break; }
 
         // correction d'octave : une periode multiple nettement plus coherente l'emporte (fondamentale faible des cordes graves)
+        // correction d'octave (fondamentale faible des cordes graves) : seulement si la periode choisie est peu nette et si
+        // la periode double (ou triple) est nettement meilleure ; sinon une corde plus aigue etait prise pour une plus grave
+        if (nsdf[sel] < 0.90f)
         for (int mult = 2; mult <= 3; ++mult)
         {
             const int cand = sel * mult;
-            if (cand > tauMax) break;
+            if (cand + 3 > top) break;
             int ci = cand; float cv = nsdf[cand];
             for (int d = -3; d <= 3; ++d)
                 if (cand + d >= tauMin && cand + d <= tauMax && nsdf[cand + d] > cv) { cv = nsdf[cand + d]; ci = cand + d; }
-            if (cv > 0.80f && cv > nsdf[sel] + 0.045f) { sel = ci; break; }
+                        if (cv > 0.85f && cv > nsdf[sel] + 0.10f) { sel = ci; break; }
         }
 
         // interpolation parabolique
@@ -283,12 +298,12 @@ private:
         if (std::abs (den) > 1.0e-9f) tauF += 0.5f * (a - c) / den;
         f0 = (float) (fsd / tauF);
         clar = b;
-        return f0 >= s.lowestHz * 0.94f && f0 <= 1500.0f;
+        return f0 >= s.lowestHz * 0.97f && f0 <= 1500.0f;
     }
 
     float nsdfAt (int tau, int end, int wMin) const
     {
-        const int w = std::max (wMin, (int) (tau * 1.25f));
+        const int w = std::max (wMin, (int) (tau * 0.8f));         // 0,8 periode (au moins 12 ms)
         const int i0 = end - w;
         if (i0 - tau < 0) return 0.0f;
         double r = 0.0, m = 0.0;
@@ -338,6 +353,7 @@ private:
     static constexpr int maxLag = 1400;
     float lin[ringSize] {};
     float nsdf[maxLag + 4] {};
+    int sinceOnsetDec = 1 << 24;
     static constexpr int maxKeys = 64;
     int keyIdx[maxKeys] {};
 
@@ -345,7 +361,7 @@ private:
     float env = 0.0f, onsetPeak = -120.0f;
     int gateLowTime = 0, onsetAge = 1 << 20;
     bool onsetFlag = false;
-    static constexpr int histMax = 8;
+    static constexpr int histMax = 16;
     float hist[histMax] {};
     int histCount = 0, candNote = -1, candCount = 0;
     int note = -1, sentChannel = 1, rpnSentFor = -1, noteAge = 0;

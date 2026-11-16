@@ -94,7 +94,7 @@ AudioProcessorValueTreeState::ParameterLayout OmiAudioProcessor::createLayout()
                                                          StringArray { "Latching (127 / 0)", "Momentary (toggle)" }, 0));
     p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "feel", 1 }, "Play Feel", feelNames(), 1));
     p.push_back (std::make_unique<AudioParameterInt> (ParameterID { "channel", 1 }, "MIDI Channel", 1, 16, 1));
-    p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "lowest", 1 }, "Lowest Note", lowestNames(), 3));
+    p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "lowest", 1 }, "Lowest Note", lowestNames(), 4));
     p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "thru", 1 }, "Guitar Audio", StringArray { "Thru", "Mute" }, 0));
     p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "fold", 1 }, "Lowest MIDI Note Out", foldNames(), 1));
     return { p.begin(), p.end() };
@@ -131,6 +131,12 @@ void OmiAudioProcessor::timerCallback()
         if (pendingSet[i].exchange (false, std::memory_order_acquire))
             if (auto* prm = apvts.getParameter (learnDef (i).id))
                 prm->setValueNotifyingHost (prm->convertTo0to1 (pendingValue[i].load (std::memory_order_relaxed)));
+
+    // REAPER : Omi vient d'etre insere (pas recharge avec un projet) -> la piste d'instrument est creee d'office,
+    // avec le dernier instrument utilise s'il est connu, sinon le navigateur d'effets s'ouvre pour le choisir
+    if (autoTrackTicks > 0 && --autoTrackTicks == 0)
+        if (! restoredFromState && omi::ReaperBridge::autoCreate() && reaperBridge.available() && reaperBridge.receivers().isEmpty())
+            reaperBridge.createInstrumentTrack (omi::ReaperBridge::lastInstrument());
 }
 
 //==============================================================================
@@ -390,6 +396,7 @@ void OmiAudioProcessor::setStateInformation (const void* data, int size)
             for (int i = 0; i < numLearn; ++i)
                 ccMap[i].store (jlimit (-1, 127, (int) state.getProperty (String ("cc_") + learnDef (i).id, -1)));
             apvts.replaceState (state);
+            restoredFromState = true;      // projet recharge, piste dupliquee, preset : jamais de piste creee d'office
             ++presetCounter;
         }
 }

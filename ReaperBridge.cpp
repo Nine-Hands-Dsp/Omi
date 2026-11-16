@@ -224,6 +224,25 @@ static juce::File settingsFile()
              .getChildFile (nhd::folderName()).getChildFile ("Omi").getChildFile ("Instrument.txt");
 }
 
+static juce::File autoFile()
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+             .getChildFile (nhd::folderName()).getChildFile ("Omi").getChildFile ("AutoTrack.txt");
+}
+
+bool ReaperBridge::autoCreate()
+{
+    const auto f = autoFile();
+    return ! f.existsAsFile() || f.loadFileAsString().trim() != "0";
+}
+
+void ReaperBridge::setAutoCreate (bool on)
+{
+    auto f = autoFile();
+    f.getParentDirectory().createDirectory();
+    f.replaceWithText (on ? "1" : "0");
+}
+
 juce::String ReaperBridge::lastInstrument()
 {
     const auto f = settingsFile();
