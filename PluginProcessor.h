@@ -111,6 +111,8 @@ public:
     omi::ReaperBridge reaperBridge;
     bool restoredFromState = false;
     int pollTicks = 0;
+    std::atomic<bool> chooserRequested { false };   // insertion : la fenetre d'Omi propose le choix de l'instrument
+    int chooserWait = 0;
     int autoTrackTicks = 75;          // ~1,25 s apres l'insertion (timer a 60 Hz)
    #if JucePlugin_Build_VST3
     struct Vst3Ext : juce::VST3ClientExtensions

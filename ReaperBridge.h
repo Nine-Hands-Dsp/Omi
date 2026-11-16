@@ -29,6 +29,8 @@ public:
     // a appeler regulierement (timer) : relie a Omi la piste creee par la fenetre de choix d'instrument de REAPER
     void poll();
 
+    // instruments installes (VSTi, VST3i, CLAPi...) tels que REAPER les nomme ; vide si l'API n'est pas disponible
+    juce::StringArray installedInstruments() const;
     static juce::String lastInstrument();
     static bool autoCreate();                      // creer la piste d'office a l'insertion d'Omi (reglage commun, oui par defaut)
     static void setAutoCreate (bool on);

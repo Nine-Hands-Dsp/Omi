@@ -28,6 +28,9 @@ sw = width('GUITAR TO MIDI', 'Light', 18.0, 7.0)
 for sgn in (-1, 1):
     a0 = sx + sgn * (sw / 2 + 14); a1 = sx + sgn * (sw / 2 + 64)
     rules.append((min(a0, a1), sy - 0.9, abs(a1 - a0), 1.8))
+tg = LY['toggle']
+texts.append(('DRY', 0, 15.0, 2.5, tg[0], tg[1] - tg[3] * 2.35, 0))      # levier en haut : guitare entendue
+texts.append(('MIDI', 0, 15.0, 2.5, tg[0], tg[1] + tg[3] * 2.35, 0))     # levier en bas : instrument seul
 texts.append(('OUT', 0, 16.0, 3.0, LY['outX'], LY['jackY'], 90))
 texts.append(('IN', 0, 16.0, 3.0, LY['inX'], LY['jackY'], 90))
 
@@ -52,6 +55,7 @@ with open(os.path.join(ROOT, 'Layout.h'), 'w') as o:
     o.write("    struct Dot { float x, y, r; };\n")
     o.write("    const Dot dots[] = { " + ", ".join(f"{{ {f(d[0])}, {f(d[1])}, {f(d[2])} }}" for d in dots) + " };\n")
     o.write("    const juce::Rectangle<float> rules[] = { " + ", ".join(f"{{ {f(r[0])}, {f(r[1])}, {f(r[2])}, {f(r[3])} }}" for r in rules) + " };\n")
+    o.write(f"    const juce::Point<float> togPos {{ {f(tg[0])}, {f(tg[1])} }}; const float togS = {f(tg[2])}, togR = {f(tg[3])};\n")
     lg = LY['logo']; o.write(f"    const juce::Point<float> logoPos {{ {f(lg[0])}, {f(lg[1])} }}; const float logoW = {f(lg[2])};\n")
     o.write("}\n")
 

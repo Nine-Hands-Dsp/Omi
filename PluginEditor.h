@@ -28,6 +28,30 @@ private:
 };
 
 //==============================================================================
+// Inverseur DRY / MIDI (photos du kit : haut / milieu / bas, recalees sur la rondelle) ; image du milieu ~55 ms
+// pendant la bascule. Levier en haut = DRY (la guitare est entendue), en bas = MIDI (instrument seul).
+//==============================================================================
+class LeverSwitch : public juce::Component
+{
+public:
+    LeverSwitch (juce::RangedAudioParameter& p, bool upMeansZero);
+    void paint (juce::Graphics&) override;
+    bool hitTest (int x, int y) override;
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+    void tick (double nowMs);
+    juce::Image strip;
+    std::function<void()> onRightClick, onUserChange;
+private:
+    void moveTo (bool up);
+    const bool upZero;
+    juce::ParameterAttachment attachment;
+    bool up = true;
+    int shownFrame = 2;                // 0 = bas, 1 = milieu, 2 = haut
+    double transitionUntil = 0.0;
+};
+
+//==============================================================================
 class OmiAudioProcessorEditor : public juce::AudioProcessorEditor,
                                 private juce::Timer
 {
@@ -67,6 +91,8 @@ private:
     void addReaperItems (juce::PopupMenu& menu);
     bool handleReaperItem (int r);
     void showReaperMenu();
+    void showInstrumentChooser();
+    juce::StringArray chooserList;
     bool hintShown = false;
     void handleMidiMenu (int r);
     void showPresetMenu();
@@ -98,6 +124,7 @@ private:
 
     std::unique_ptr<nh::Knob> knobs[OmiAudioProcessor::numKnobs];
     FootSwitchArea footswitch;
+    LeverSwitch dryToggle;
 
     // ecran : valeurs affichees (redessin seulement si elles changent)
     struct ScreenState

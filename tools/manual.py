@@ -15,7 +15,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHOTS, OUT = sys.argv[1], sys.argv[2]
-VERSION = "1.0.6"
+VERSION = "1.0.7"
 TMP = os.path.join(ROOT, "tools", "manual_assets"); os.makedirs(TMP, exist_ok=True)
 FONTS = os.path.join(ROOT, "assets", "fonts")
 for n, f in (("Pop", "Poppins-Regular"), ("PopL", "Poppins-Light"), ("PopM", "Poppins-Medium"), ("PopB", "Poppins-Bold"),
@@ -145,7 +145,7 @@ T = {
  inst_t="2. Installation",
  inst=[("Windows", "Cliquez sur le bouton <b>Télécharger Windows</b> de la page GitHub Nine-Hands-Dsp/omi (il donne toujours la dernière version), décompressez <b>Omi-VST3-Windows.zip</b> et copiez le dossier <b>Omi.vst3</b> dans <b>C:\\Program Files\\Common Files\\VST3</b>."),
        ("macOS", "Cliquez sur <b>Télécharger macOS</b>, décompressez <b>Omi-VST3-macOS.zip</b> et copiez <b>Omi.vst3</b> dans <b>~/Bibliothèque/Audio/Plug-Ins/VST3</b>. Si macOS le bloque, tapez <b>xattr -cr ~/Library/Audio/Plug-Ins/VST3/Omi.vst3</b> dans le Terminal. Le binaire est universel (Apple Silicon et Intel)."),
-       ("Reaper : brancher Omi sur un VST de basse", "Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <b>Re-scan</b> ; le plugin apparaît sous le nom <b>Omi (NINE HANDS | DSP)</b>. Mettez Omi en tête de la piste guitare : environ une seconde après, REAPER ouvre sa fenêtre <b>Insert virtual instrument on new track</b>. Choisissez votre VST de basse : la piste est créée juste sous celle d'Omi, aussitôt reliée à son MIDI (Audio : None, MIDI : All → All) et nommée « Omi - &lt;instrument&gt; » ; la fenêtre de l'instrument s'ouvre seule (pas la chaîne FX). Rien n'est créé quand un projet est rechargé. Un <b>clic sur l'écran</b> d'Omi ouvre le même menu : créer une autre piste (<b>Create MIDI track + choose instrument...</b>), la recréer directement avec le dernier instrument utilisé (<b>Create MIDI track with &lt;instrument&gt;</b>), ouvrir l'instrument d'une piste déjà reliée, ou décocher <b>Create the MIDI track automatically when Omi is inserted</b>. Ctrl+Z annule. Si la fenêtre de choix n'apparaît pas, regardez vos autres écrans : REAPER la rouvre là où elle était la dernière fois."),
+       ("Reaper : brancher Omi sur un VST de basse", "Options &gt; Preferences &gt; Plug-ins &gt; VST &gt; <b>Re-scan</b> ; le plugin apparaît sous le nom <b>Omi (NINE HANDS | DSP)</b>. Mettez Omi en tête de la piste guitare : sa fenêtre propose aussitôt la <b>liste des instruments installés</b> (VST3i, VSTi, CLAPi..., rangés par fabricant, le dernier utilisé en tête). Choisissez votre basse : Omi crée juste en dessous une <b>piste MIDI</b> (entrée MIDI, tous canaux) avec cet instrument, reliée à son MIDI (Audio : None, MIDI : All → All), nommée « Omi - &lt;instrument&gt; », et ouvre la fenêtre de l'instrument. Rien n'est créé quand un projet est rechargé. Le même choix revient au <b>clic sur l'écran</b> d'Omi (<b>Create MIDI track + choose instrument...</b>) ; ce menu permet aussi d'ouvrir l'instrument d'une piste déjà reliée ou de décocher <b>Create the MIDI track automatically when Omi is inserted</b>. Si la fenêtre d'Omi est fermée à l'insertion, REAPER ouvre sa propre fenêtre de choix d'instrument. Ctrl+Z annule."),
        ("À la main", "Bouton <b>ROUTE</b> de la piste de l'instrument &gt; <b>Add new receive</b> &gt; piste guitare, réglé sur <b>Audio : None</b> et <b>MIDI : All → All</b>. Variante : placez le VST de basse juste après Omi sur la piste guitare (le MIDI d'Omi descend la chaîne d'effets) et choisissez clic droit &gt; <b>Guitar audio</b> &gt; <b>Mute</b> pour n'entendre que l'instrument.")],
  ov_t="3. Vue d'ensemble de l'interface",
  ov_rows=[["#", "Commande", "Rôle"],
@@ -156,7 +156,7 @@ T = {
    ["5", "Écran", "Note jouée, note MIDI envoyée, vélocité, vu-mètre et seuil. Clic : piste d'instrument REAPER."],
    ["6", "Presets / ligne d'état", "Une seule pastille : presets au repos, valeur du réglage en cours pendant un mouvement."],
    ["7", "LED", "Bleue tant qu'une note MIDI est envoyée."],
-   ["8", "Footswitch", "MIDI actif / arrêt."],
+   ["8", "Footswitch", "MIDI actif / arrêt (à sa gauche : inverseur DRY / MIDI)."],
    ["9", "OUT", "Sortie audio (guitare, si Guitar audio = Thru)."],
    ["10", "IN", "Entrée de la guitare."]],
  on_cap="Arrêt (BYPASS), puis en jeu : la LED bleue suit les notes envoyées.",
@@ -173,7 +173,7 @@ T = {
      "<b>Lowest note</b> (clic droit) : la note la plus grave cherchée : E2 (6 cordes), B1 (7 cordes), G1 (7 cordes en Sol), F#1 (8 cordes), E1 (8 cordes en drop E, réglage par défaut) ou G#0 (accordages très bas). <b>Réglez-le sur votre corde la plus grave</b> : aucune note n'étant cherchée plus bas, une corde plus aiguë ne peut plus être prise pour une plus grave.",
      "<b>Lowest MIDI note out</b> (clic droit) : la plupart des basses virtuelles s'arrêtent à B0 (basse 5 cordes) ou E1 (4 cordes). Avec <b>B0</b> (par défaut) ou <b>E1</b>, si votre corde la plus grave (Lowest note), transposée par TRANS, tombe sous cette limite, <b>tout le jeu</b> monte d'une octave : l'ordre des cordes est respecté. Exemple : 7 cordes en Sol, Lowest note G1, TRANS −12 : G0 est sous B0, Omi joue donc à la hauteur réelle (G1 donne G1, D2 donne D2). <b>A0</b> pour les instruments à tessiture étendue, <b>Off</b> pour appliquer TRANS tel quel.",
      "<b>Octave hold</b> (clic droit, activé par défaut) : si la note en cours sonne encore et que vous jouez la même note une ou deux octaves au-dessus, Omi garde la première note : la basse reste sur la fondamentale pendant un jeu en octaves. Omi le reconnaît aux harmoniques impaires de la première corde, qui restent présentes tant qu'elle sonne ; si vous l'étouffez, l'octave part normalement.",
-     "<b>Couper le son de la guitare (dry)</b> pour n'entendre que l'instrument (wet) : clic sur l'écran &gt; décochez <b>Dry guitar sound</b>, ou clic droit &gt; <b>Guitar audio</b> &gt; <b>Mute</b>, ou un footswitch MIDI (<b>MIDI Learn &gt; Dry guitar</b>). L'écran affiche alors <b>DRY OFF</b> en orange.",
+     "<b>Inverseur DRY / MIDI</b> (à gauche du footswitch) : levier en haut, la guitare (dry) est entendue avec l'instrument ; levier en bas, <b>MIDI</b> : seul l'instrument (wet) est entendu et l'écran affiche <b>DRY OFF</b> en orange. Aussi au clic sur l'écran (<b>Dry guitar sound</b>), au clic droit (<b>Guitar audio</b>) et par un footswitch MIDI (<b>MIDI Learn &gt; Dry guitar</b>). Si une autre piste écoute la même entrée (piste armée avec monitoring), la guitare s'entend toujours par cette piste : désarmez-la ou coupez son monitoring.",
      "<b>MIDI out channel</b> (clic droit) : canal 1 à 16. <b>Guitar audio</b> : Thru (la guitare continue de passer, par défaut) ou Mute (seul le MIDI sort)."],
  midi_t="6. MIDI entrant",
  midi_intro=["Les commandes d'Omi se pilotent depuis un contrôleur MIDI (footswitchs, pédales d'expression, potards). <b>Aucun CC n'est assigné d'office</b> : vous choisissez chacun avec le <b>MIDI Learn</b>. Les CC non assignés et les autres messages MIDI entrants passent tels quels vers l'instrument suivant."],

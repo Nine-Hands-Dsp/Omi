@@ -141,7 +141,10 @@ void OmiAudioProcessor::timerCallback()
     if (++pollTicks >= 6) { pollTicks = 0; reaperBridge.poll(); }   // piste choisie dans la fenetre de REAPER -> reliee a Omi
     if (autoTrackTicks > 0 && --autoTrackTicks == 0)
         if (! restoredFromState && omi::ReaperBridge::autoCreate() && reaperBridge.available() && reaperBridge.receivers().isEmpty())
-            reaperBridge.createInstrumentTrack ({});        // fenetre de choix de l'instrument de REAPER
+            { chooserRequested = true; chooserWait = 180; }   // la fenetre d'Omi propose la liste des instruments
+    // fenetre d'Omi fermee : au bout de 3 s, fenetre de choix de REAPER a la place
+    if (chooserWait > 0 && --chooserWait == 0 && chooserRequested.exchange (false))
+        reaperBridge.createInstrumentTrack ({});
 }
 
 //==============================================================================

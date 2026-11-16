@@ -2,6 +2,7 @@
 #include "BinaryData.h"
 #include "Layout.h"
 #include "WigaWindowSize.h"
+#include <map>
 
 using namespace juce;
 
@@ -69,11 +70,74 @@ void FootSwitchArea::mouseUp (const MouseEvent& e)
 }
 
 //==============================================================================
+// INVERSEUR DRY / MIDI
+//==============================================================================
+LeverSwitch::LeverSwitch (RangedAudioParameter& p, bool upMeansZero)
+    : upZero (upMeansZero),
+      attachment (p, [this] (float v)
+                  {
+                      const bool nu = upZero ? v < 0.5f : v > 0.5f;
+                      if (nu != up)
+                      {
+                          up = nu;
+                          shownFrame = 1;                                   // position du milieu ~55 ms
+                          transitionUntil = Time::getMillisecondCounterHiRes() + 55.0;
+                          repaint();
+                      }
+                  })
+{
+    attachment.sendInitialUpdate();
+    shownFrame = up ? 2 : 0;
+    setMouseCursor (MouseCursor::PointingHandCursor);
+}
+
+void LeverSwitch::tick (double now)
+{
+    const int target = up ? 2 : 0;
+    if (shownFrame != target && now >= transitionUntil) { shownFrame = target; repaint(); }
+}
+
+void LeverSwitch::paint (Graphics& g)
+{
+    if (! strip.isValid()) return;
+    const int fs = strip.getWidth();
+    const int row = 2 - shownFrame;                         // bande : haut / milieu / bas
+    g.setImageResamplingQuality (Graphics::highResamplingQuality);
+    g.drawImage (strip, 0, 0, getWidth(), getHeight(), 0, row * fs, fs, fs);
+}
+
+bool LeverSwitch::hitTest (int x, int y)
+{
+    const auto c = getLocalBounds().toFloat().getCentre();
+    const float r = (float) getWidth() * (layout::togR / layout::togS);
+    return std::abs ((float) x - c.x) <= r * 1.15f && std::abs ((float) y - c.y) <= r * 1.6f;
+}
+
+void LeverSwitch::moveTo (bool nu)
+{
+    if (nu == up) return;
+    attachment.setValueAsCompleteGesture ((nu == upZero) ? 0.0f : 1.0f);
+    if (onUserChange) onUserChange();
+}
+
+void LeverSwitch::mouseDown (const MouseEvent& e)
+{
+    if (e.mods.isPopupMenu()) { if (onRightClick) onRightClick(); return; }
+    moveTo (! up);
+}
+
+void LeverSwitch::mouseWheelMove (const MouseEvent&, const MouseWheelDetails& w)
+{
+    if (std::abs (w.deltaY) > 0.0f) moveTo (w.deltaY > 0);
+}
+
+//==============================================================================
 // EDITEUR
 //==============================================================================
 OmiAudioProcessorEditor::OmiAudioProcessorEditor (OmiAudioProcessor& p)
     : AudioProcessorEditor (&p), proc (p),
-      footswitch (*p.apvts.getParameter ("active"))
+      footswitch (*p.apvts.getParameter ("active")),
+      dryToggle (*p.apvts.getParameter ("thru"), true)
 {
     background = ImageCache::getFromMemory (BinaryData::background_png, BinaryData::background_pngSize);
     glow       = ImageCache::getFromMemory (BinaryData::glow_blue_png, BinaryData::glow_blue_pngSize);
@@ -104,6 +168,10 @@ OmiAudioProcessorEditor::OmiAudioProcessorEditor (OmiAudioProcessor& p)
     }
 
     footswitch.onRightClick = [this] { showContextMenu (4); };
+    dryToggle.strip = ImageCache::getFromMemory (BinaryData::toggle_strip_png, BinaryData::toggle_strip_pngSize);
+    dryToggle.onRightClick = [this] { showContextMenu (5); };
+    dryToggle.onUserChange = [this] { showStatus(); };
+    addAndMakeVisible (dryToggle);
     footswitch.onUserChange = [this] { showStatus(); };
     addAndMakeVisible (footswitch);
 
@@ -183,6 +251,12 @@ void OmiAudioProcessorEditor::resized()
     }
     const float fr = layout::fsS * 0.5f;
     footswitch.setBounds (scaled ({ layout::fsPos.x - fr, layout::fsPos.y - fr, fr * 2.0f, fr * 2.0f }));
+    {
+        // carre en pixels entiers, centre sur la rondelle : les trois images tombent exactement au meme endroit
+        const float s = (float) getHeight() / baseH;
+        const int side = roundToInt (layout::togS * s);
+        dryToggle.setBounds (roundToInt (layout::togPos.x * s) - side / 2, roundToInt (layout::togPos.y * s) - side / 2, side, side);
+    }
     resizeSettle = 4;
 }
 
@@ -227,7 +301,7 @@ String OmiAudioProcessorEditor::buildStatusLine() const
     if (id == "channel") return "midi channel  " + String (roundToInt (v));
     if (id == "lowest")  return "lowest note  " + OmiAudioProcessor::lowestNames()[jlimit (0, OmiAudioProcessor::numLowest - 1, roundToInt (v))].upToFirstOccurrenceOf (" ", false, false);
     if (id == "fold")    { const int n = OmiAudioProcessor::foldNote (roundToInt (v)); return n < 0 ? String ("lowest midi note  free") : "lowest midi note  " + OmiAudioProcessor::noteName (n); }
-    if (id == "thru")    return v > 0.5f ? "guitar audio muted" : "guitar audio thru";
+    if (id == "thru")    return v > 0.5f ? "midi only (dry off)" : "dry guitar + midi";
     if (id == "octHold") return v > 0.5f ? "octave hold on" : "octave hold off";
     return v > 0.5f ? "midi on" : "bypass";
 }
@@ -247,6 +321,8 @@ String OmiAudioProcessorEditor::buildPresetLine() const
 void OmiAudioProcessorEditor::timerCallback()
 {
     const double now = Time::getMillisecondCounterHiRes();
+    dryToggle.tick (now);
+    if (isShowing() && proc.chooserRequested.exchange (false)) showInstrumentChooser();
     if (getPeer() != lastPeer || now - lastRendererCheckMs > 1000.0) { lastRendererCheckMs = now; useSoftwareRenderer(); }
     hostLock.track (*this);
 
@@ -819,9 +895,10 @@ bool OmiAudioProcessorEditor::handleReaperItem (int r)
 {
     auto& rb = proc.reaperBridge;
     if (r == 393) { proc.setParamValue ("thru", proc.rawAt (OmiAudioProcessor::rThru) > 0.5f ? 0.0f : 1.0f); return true; }
-    if (r == 390 || r == 391)
+    if (r == 390) { showInstrumentChooser(); return true; }
+    if (r == 391)
     {
-        const bool ok = rb.createInstrumentTrack (r == 391 ? omi::ReaperBridge::lastInstrument() : String());
+        const bool ok = rb.createInstrumentTrack (omi::ReaperBridge::lastInstrument());
         learnLine = ok ? String ("MIDI track created") : String ("REAPER only");
         learnLineUntil = Time::getMillisecondCounterHiRes() + 2500.0;
         statusUntil = jmax (statusUntil, learnLineUntil);
@@ -830,6 +907,55 @@ bool OmiAudioProcessorEditor::handleReaperItem (int r)
     if (r == 392) { omi::ReaperBridge::setAutoCreate (! omi::ReaperBridge::autoCreate()); return true; }
     if (r >= 400 && r < 464) { rb.showReceiver (r - 400); return true; }
     return false;
+}
+
+// Choix de l'instrument de la piste MIDI : liste des instruments installes (VSTi, VST3i, CLAPi), par format puis par
+// fabricant, au design des menus d'Octopus ; la piste MIDI est creee sous celle d'Omi avec l'instrument choisi
+void OmiAudioProcessorEditor::showInstrumentChooser()
+{
+    auto& rb = proc.reaperBridge;
+    if (! rb.available()) return;
+    chooserList = rb.installedInstruments();
+    if (chooserList.isEmpty()) { rb.createInstrumentTrack ({}); return; }      // REAPER ancien : sa propre fenetre de choix
+    PopupMenu menu;
+    menu.setLookAndFeel (&menuLnf);
+    NineHandsMenu::addHeader (menu, menuLnf.f, NineHandsMenu::icoMidi, accent, "New MIDI track", "Choose the instrument");
+    const auto last = omi::ReaperBridge::lastInstrument();
+    if (last.isNotEmpty()) { menu.addItem (2000, "Last used: " + last.fromFirstOccurrenceOf (": ", false, false)); menu.addSeparator(); }
+    // format (VST3i, VSTi, CLAPi...) -> fabricant -> instrument
+    std::map<String, std::map<String, PopupMenu>> tree;
+    for (int i = 0; i < chooserList.size(); ++i)
+    {
+        const auto& n = chooserList.getReference (i);
+        const auto format = n.upToFirstOccurrenceOf (":", false, false).trim();
+        const auto rest = n.fromFirstOccurrenceOf (":", false, false).trim();
+        auto vendor = rest.fromFirstOccurrenceOf ("(", false, false).upToFirstOccurrenceOf (")", false, false).trim();
+        if (vendor.isEmpty()) vendor = "Other";
+        tree[format][vendor].addItem (3000 + i, rest.upToFirstOccurrenceOf (" (", false, false));
+    }
+    for (auto& f : tree)
+    {
+        PopupMenu fm;
+        for (auto& v : f.second) fm.addSubMenu (v.first, v.second);
+        menu.addSubMenu (f.first, fm);
+    }
+    menu.addSeparator();
+    menu.addItem (2001, "Cancel (no MIDI track)");
+    auto opts = PopupMenu::Options();
+    opts = isShowing() ? opts.withTargetScreenArea (localAreaToGlobal (scaled (layout::screenRect))) : opts.withMousePosition();
+    menu.showMenuAsync (opts, [safe = Component::SafePointer<OmiAudioProcessorEditor> (this)] (int r)
+    {
+        if (safe == nullptr || r == 0 || r == 2001) return;
+        auto& ed = *safe;
+        String inst;
+        if (r == 2000) inst = omi::ReaperBridge::lastInstrument();
+        else if (r >= 3000 && r - 3000 < ed.chooserList.size()) inst = ed.chooserList[r - 3000];
+        if (inst.isEmpty()) return;
+        const bool ok = ed.proc.reaperBridge.createInstrumentTrack (inst);
+        ed.learnLine = ok ? String ("MIDI track created") : String ("REAPER only");
+        ed.learnLineUntil = Time::getMillisecondCounterHiRes() + 2500.0;
+        ed.statusUntil = jmax (ed.statusUntil, ed.learnLineUntil);
+    });
 }
 
 void OmiAudioProcessorEditor::showReaperMenu()

@@ -6,7 +6,7 @@ if(APPLE)
   set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "" FORCE)
 endif()
 
-project(Omi VERSION 1.0.6)
+project(Omi VERSION 1.0.7)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,7 +28,7 @@ endif()
 
 # visuel integre au plugin (aucun fichier externe a l'execution)
 juce_add_binary_data(OmiAssets SOURCES
-  background.png glow_blue.png led_on.png fs_refl.png knob_marker.png knob_shadow.png Poppins-Medium.ttf Poppins-Bold.ttf Poppins-Light.ttf NineHandsLogoWhite.svg)
+  background.png glow_blue.png led_on.png fs_refl.png knob_marker.png knob_shadow.png toggle_strip.png Poppins-Medium.ttf Poppins-Bold.ttf Poppins-Light.ttf NineHandsLogoWhite.svg)
 set_target_properties(OmiAssets PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 juce_add_plugin(Omi
@@ -39,7 +39,7 @@ juce_add_plugin(Omi
   FORMATS VST3
   VST3_CATEGORIES Fx Analyzer
   PRODUCT_NAME "Omi"
-  VERSION 1.0.6
+  VERSION 1.0.7
   DESCRIPTION "Guitar to MIDI converter (monophonic, very low tunings) - single pedal format"
   IS_SYNTH FALSE
   NEEDS_MIDI_INPUT TRUE

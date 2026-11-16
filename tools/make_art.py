@@ -18,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import photo_controls as PC
+import toggle_photo as TP
 
 AS = 2
 UW, UH = 760, 958
@@ -47,6 +48,9 @@ PRESET = (CX - 200.0 * PW / 566.0 * 0 - 200.0, 588.0, 400.0, 44.0)   # pastille 
 LED = (CX, 708.0)
 FS = (CX, 804.0)
 LOGO_C, LOGO_W = (CX, 896.0), 196.0
+TOG_R = 22.0                                              # inverseur DRY / MIDI (photos du kit), a gauche du footswitch
+TOG_S = TOG_R * 3.6
+TOG = (CX - 158.0, 804.0)
 JACK_Y = PY0 + 0.62 * PH
 ART_Y = 664.0
 # variantes de disposition (OMI_LAYOUT = JSON) : ecran, potards, titre, pastille, motif, LED, footswitch
@@ -180,7 +184,10 @@ _fa = np.zeros((H, W), np.float32); _n = FSPR.shape[0]
 _x0 = int(round((FS[0] - FS_W / 2) * AS)); _y0 = int(round((FS[1] - FS_W / 2) * AS))
 _fa[_y0:_y0 + _n, _x0:_x0 + _n] = np.clip((FSPR[..., 3] / 255.0 - 0.86) / 0.14, 0, 1)
 _m = np.maximum(_m, _fa)
+_m = np.maximum(_m, np.clip((TOG_R * 0.9 - np.hypot(UX - TOG[0], UY - TOG[1])) * AS, 0, 1) * 0.7)
 occlusion(_m)
+TFR = TP.aligned_frames(TOG_R, TOG_S, AS * 2)              # haut / milieu / bas, 4 px par unite (net en HiDPI)
+Image.fromarray(np.concatenate(TFR, 0), 'RGBA').save(os.path.join(ROOT, 'toggle_strip.png'), optimize=True)
 KN, KS = PC.knob_sprite(KNOB_R, AS)
 for (x, y, _, KR) in KNOBS:
     over(img, KN, (x - KS / 2) * AS, (y - KS / 2) * AS)
@@ -249,6 +256,6 @@ json.dump({"frame": [OUT_W / 2, OUT_H / 2],
            "preset": [OUT_W / 4 - pw / 2, Y(PRESET[1]), pw, 38.0],
            "title": [X(CX), Y(TITLE_Y)], "sub": [X(CX), Y(SUB_Y)],
            "logo": [X(LOGO_C[0]), Y(LOGO_C[1]), LOGO_W * SC],
-           "jackY": Y(JACK_Y), "inX": X(PX0 + PW - 26), "outX": X(PX0 + 26), "boxX": [X(PX0), X(PX0 + PW)]},
+           "jackY": Y(JACK_Y), "toggle": [X(TOG[0]), Y(TOG[1]), TOG_S * SC, TOG_R * SC], "inX": X(PX0 + PW - 26), "outX": X(PX0 + 26), "boxX": [X(PX0), X(PX0 + PW)]},
           open(os.path.join(ROOT, 'tools', 'layout.json'), 'w'), indent=1)
 print('ok', PW, JACK_PROT)
