@@ -46,9 +46,7 @@ private:
     void moveTo (bool up);
     const bool upZero;
     juce::ParameterAttachment attachment;
-    bool up = true;
-    int shownFrame = 2;                // 0 = bas, 1 = milieu, 2 = haut
-    double transitionUntil = 0.0;
+    bool up = true;                    // bouton en haut = DRY
 };
 
 //==============================================================================
@@ -116,10 +114,10 @@ private:
     int resizeSettle = 0;
     void* lastPeer = nullptr;
     double lastPaintMs = 0.0, repaintAskedMs = 0.0, lastScaleCheckMs = 0.0, lastRendererCheckMs = 0.0;
-    juce::Typeface::Ptr labelFace, boldFace, lightFace;
+    juce::Typeface::Ptr labelFace, boldFace, lightFace, orbMed, orbReg;
     NineHandsMenu::MenuLnf menuLnf;
     NineHandsWindow::HostLock hostLock;
-    juce::Path printPath;
+    juce::Path printPath, greyPath;
     std::unique_ptr<juce::Drawable> logo;
 
     std::unique_ptr<nh::Knob> knobs[OmiAudioProcessor::numKnobs];

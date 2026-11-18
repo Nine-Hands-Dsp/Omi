@@ -15,7 +15,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHOTS, OUT = sys.argv[1], sys.argv[2]
-VERSION = "1.0.8"
+VERSION = "1.0.9"
 TMP = os.path.join(ROOT, "tools", "manual_assets"); os.makedirs(TMP, exist_ok=True)
 FONTS = os.path.join(ROOT, "assets", "fonts")
 for n, f in (("Pop", "Poppins-Regular"), ("PopL", "Poppins-Light"), ("PopM", "Poppins-Medium"), ("PopB", "Poppins-Bold"),
@@ -39,7 +39,7 @@ k = src.height / LAY["frame"][1]
 
 # ---------- capture annotee ----------
 marks = [(1, KNOBS[0][0] - 50, KNOBS[0][1] + 52), (2, KNOBS[1][0] - 50, KNOBS[1][1] + 52), (3, KNOBS[2][0] + 50, KNOBS[2][1] + 52),
-         (4, KNOBS[3][0] + 50, KNOBS[3][1] + 52), (5, SCREEN[0] + SCREEN[2] / 2, SCREEN[1] - 14), (6, PRESET[0] + 4, PRESET[1] - 16),
+         (4, KNOBS[3][0] + 50, KNOBS[3][1] + 52), (5, SCREEN[0] + SCREEN[2] / 2, SCREEN[1] + SCREEN[3] + 11), (6, PRESET[0] - 15, PRESET[1] + PRESET[3] / 2),
          (7, LED[0] + 34, LED[1]), (8, FS[0] + 80, FS[1]), (9, BX0 + 22, JACK_Y - 66), (10, BX1 - 22, JACK_Y - 66)]
 ann = src.copy(); dr = ImageDraw.Draw(ann)
 fnt = ImageFont.truetype(os.path.join(FONTS, "Poppins-Bold.ttf"), 30)
@@ -141,7 +141,7 @@ T = {
  intro=["<b>OMI</b> est un plugin NINE HANDS | DSP qui transforme le jeu de la guitare en <b>notes MIDI</b>, dans l'esprit des interfaces GK-MIDI de Roland (GI-20). Il écoute la guitare, reconnaît la note jouée, sa justesse et sa force, et envoie notes, vélocité et pitch bend à un instrument virtuel : un VST de basse, un synthé, un orgue…",
         "Omi est <b>monophonique</b> : il suit une note à la fois, ce qui convient parfaitement aux lignes de basse. Un micro ordinaire mélange toutes les cordes : pour convertir des accords, Roland utilise un micro hexaphonique GK (une voie par corde).",
         "La détection de hauteur est <b>renforcée pour les accordages très graves</b> des 7 et 8 cordes (jusqu'à A0, 27,5 Hz) : sur ces cordes, la fondamentale captée par le micro est faible et l'harmonique 2 domine, ce qui fait d'ordinaire « décrocher » les convertisseurs à l'octave du dessus. Omi mesure chaque période candidate sur une fenêtre adaptée à sa longueur, préfère une période double nettement plus cohérente, confirme chaque nouvelle note sur plusieurs analyses et ne coupe jamais une note sur une analyse ratée.",
-        "Le visuel est un design original NINE HANDS | DSP : boîtier bleu nuit métallisé, écran de note, et un motif imprimé où l'onde de la guitare entre côté IN et ressort en notes MIDI côté OUT. Omi n'est pas affilié à Roland ; « GI-20 » et « GK » ne servent qu'à décrire le principe."],
+        "Le visuel est un design original NINE HANDS | DSP : boîtier gris clair à bevel plat, grand écran de note encastré, petit écran des presets et logo OMI audio2midi. Omi n'est pas affilié à Roland ; « GI-20 » et « GK » ne servent qu'à décrire le principe."],
  inst_t="2. Installation",
  inst=[("Windows", "Cliquez sur le bouton <b>Télécharger Windows</b> de la page GitHub Nine-Hands-Dsp/omi (il donne toujours la dernière version), décompressez <b>Omi-VST3-Windows.zip</b> et copiez le dossier <b>Omi.vst3</b> dans <b>C:\\Program Files\\Common Files\\VST3</b>."),
        ("macOS", "Cliquez sur <b>Télécharger macOS</b>, décompressez <b>Omi-VST3-macOS.zip</b> et copiez <b>Omi.vst3</b> dans <b>~/Bibliothèque/Audio/Plug-Ins/VST3</b>. Si macOS le bloque, tapez <b>xattr -cr ~/Library/Audio/Plug-Ins/VST3/Omi.vst3</b> dans le Terminal. Le binaire est universel (Apple Silicon et Intel)."),
@@ -156,7 +156,7 @@ T = {
    ["5", "Écran", "Note jouée, note MIDI envoyée, vélocité, vu-mètre et seuil. Clic : piste d'instrument REAPER."],
    ["6", "Presets / ligne d'état", "Une seule pastille : presets au repos, valeur du réglage en cours pendant un mouvement."],
    ["7", "LED", "Bleue tant qu'une note MIDI est envoyée."],
-   ["8", "Footswitch", "MIDI actif / arrêt (à sa gauche : inverseur DRY / MIDI)."],
+   ["8", "Footswitch", "MIDI actif / arrêt (à sa droite : inverseur DRY / MIDI)."],
    ["9", "OUT", "Sortie audio (guitare, si Guitar audio = Thru)."],
    ["10", "IN", "Entrée de la guitare."]],
  on_cap="Arrêt (BYPASS), puis en jeu : la LED bleue suit les notes envoyées.",
@@ -173,7 +173,7 @@ T = {
      "<b>Lowest note</b> (clic droit) : la note la plus grave cherchée : E2 (6 cordes), B1 (7 cordes), G1 (7 cordes en Sol), F#1 (8 cordes), E1 (8 cordes en drop E, réglage par défaut) ou G#0 (accordages très bas). <b>Réglez-le sur votre corde la plus grave</b> : aucune note n'étant cherchée plus bas, une corde plus aiguë ne peut plus être prise pour une plus grave.",
      "<b>Lowest MIDI note out</b> (clic droit) : la plupart des basses virtuelles s'arrêtent à B0 (basse 5 cordes) ou E1 (4 cordes). Avec <b>B0</b> (par défaut) ou <b>E1</b>, si votre corde la plus grave (Lowest note), transposée par TRANS, tombe sous cette limite, <b>tout le jeu</b> monte d'une octave : l'ordre des cordes est respecté. Exemple : 7 cordes en Sol, Lowest note G1, TRANS −12 : G0 est sous B0, Omi joue donc à la hauteur réelle (G1 donne G1, D2 donne D2). <b>A0</b> pour les instruments à tessiture étendue, <b>Off</b> pour appliquer TRANS tel quel.",
      "<b>Octave hold</b> (clic droit, activé par défaut) : si la note en cours sonne encore et que vous jouez la même note une ou deux octaves au-dessus, Omi garde la première note : la basse reste sur la fondamentale pendant un jeu en octaves. Omi le reconnaît aux harmoniques impaires de la première corde, qui restent présentes tant qu'elle sonne ; si vous l'étouffez, l'octave part normalement.",
-     "<b>Inverseur DRY / MIDI</b> (à gauche du footswitch) : levier en haut, la guitare (dry) est entendue avec l'instrument ; levier en bas, <b>MIDI</b> : seul l'instrument (wet) est entendu et l'écran affiche <b>DRY OFF</b> en orange. Aussi au clic sur l'écran (<b>Dry guitar sound</b>), au clic droit (<b>Guitar audio</b>) et par un footswitch MIDI (<b>MIDI Learn &gt; Dry guitar</b>). Si une autre piste écoute la même entrée (piste armée avec monitoring), la guitare s'entend toujours par cette piste : désarmez-la ou coupez son monitoring.",
+     "<b>Inverseur DRY / MIDI</b> (à droite du footswitch) : bouton en haut (<b>DRY</b>), la guitare est entendue avec l'instrument ; bouton en bas, <b>MIDI</b> : seul l'instrument (wet) est entendu et l'écran affiche <b>DRY OFF</b> en orange. Aussi au clic sur l'écran (<b>Dry guitar sound</b>), au clic droit (<b>Guitar audio</b>) et par un footswitch MIDI (<b>MIDI Learn &gt; Dry guitar</b>). Si une autre piste écoute la même entrée (piste armée avec monitoring), la guitare s'entend toujours par cette piste : désarmez-la ou coupez son monitoring.",
      "<b>MIDI out channel</b> (clic droit) : canal 1 à 16. <b>Guitar audio</b> : Thru (la guitare continue de passer, par défaut) ou Mute (seul le MIDI sort)."],
  midi_t="6. MIDI entrant",
  midi_intro=["Les commandes d'Omi se pilotent depuis un contrôleur MIDI (footswitchs, pédales d'expression, potards). <b>Aucun CC n'est assigné d'office</b> : vous choisissez chacun avec le <b>MIDI Learn</b>. Les CC non assignés et les autres messages MIDI entrants passent tels quels vers l'instrument suivant."],

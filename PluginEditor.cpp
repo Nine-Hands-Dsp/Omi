@@ -9,14 +9,41 @@ using namespace juce;
 namespace
 {
     const Rectangle<float> presetRect = layout::presetRect;
-    const Colour inkCream (0xffece4d0);     // serigraphie creme
     const Colour accent (0xff3c8cff);       // bleu de la LED
-    const Colour panel (0xff060a12);        // fond de la pastille
     const Colour scrCyan (0xff5acdff), scrWhite (0xffebf4ff), scrGrey (0xff788ca5), scrDim (0xff1e2c3e);
 
     const char* const valueIds[] = { "sens", "dyn", "bend", "trans", "active", "feel", "channel", "lowest", "thru", "fold", "octHold" };
     constexpr int numValueIds = 11;
     constexpr float meterLo = -72.0f, meterHi = -6.0f;
+
+    // Agrandissement bilineaire exact (JUCE laisse une trame de lignes a peine visibles en agrandissant)
+    Image upscaleBilinear (const Image& src, int w, int h)
+    {
+        Image out (Image::ARGB, w, h, false);
+        const Image::BitmapData s (src, Image::BitmapData::readOnly);
+        Image::BitmapData d (out, Image::BitmapData::writeOnly);
+        const float kx = (float) src.getWidth() / (float) w, ky = (float) src.getHeight() / (float) h;
+        for (int y = 0; y < h; ++y)
+        {
+            const float fy = jlimit (0.0f, (float) src.getHeight() - 1.001f, ((float) y + 0.5f) * ky - 0.5f);
+            const int y0 = (int) fy; const float ty = fy - (float) y0;
+            for (int x = 0; x < w; ++x)
+            {
+                const float fx = jlimit (0.0f, (float) src.getWidth() - 1.001f, ((float) x + 0.5f) * kx - 0.5f);
+                const int x0 = (int) fx; const float tx = fx - (float) x0;
+                const PixelARGB p00 = s.getPixelColour (x0, y0).getPixelARGB(), p10 = s.getPixelColour (x0 + 1, y0).getPixelARGB();
+                const PixelARGB p01 = s.getPixelColour (x0, y0 + 1).getPixelARGB(), p11 = s.getPixelColour (x0 + 1, y0 + 1).getPixelARGB();
+                auto mix = [&] (uint8 a, uint8 b, uint8 c, uint8 e)
+                { return (uint8) jlimit (0, 255, roundToInt ((a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + e * tx) * ty)); };
+                PixelARGB q (mix (p00.getAlpha(), p10.getAlpha(), p01.getAlpha(), p11.getAlpha()),
+                             mix (p00.getRed(), p10.getRed(), p01.getRed(), p11.getRed()),
+                             mix (p00.getGreen(), p10.getGreen(), p01.getGreen(), p11.getGreen()),
+                             mix (p00.getBlue(), p10.getBlue(), p01.getBlue(), p11.getBlue()));
+                *(PixelARGB*) d.getPixelPointer (x, y) = q;          // valeurs premultipliees conservees
+            }
+        }
+        return out;
+    }
 }
 
 //==============================================================================
@@ -80,28 +107,21 @@ LeverSwitch::LeverSwitch (RangedAudioParameter& p, bool upMeansZero)
                       if (nu != up)
                       {
                           up = nu;
-                          shownFrame = 1;                                   // position du milieu ~55 ms
-                          transitionUntil = Time::getMillisecondCounterHiRes() + 55.0;
                           repaint();
                       }
                   })
 {
     attachment.sendInitialUpdate();
-    shownFrame = up ? 2 : 0;
     setMouseCursor (MouseCursor::PointingHandCursor);
 }
 
-void LeverSwitch::tick (double now)
-{
-    const int target = up ? 2 : 0;
-    if (shownFrame != target && now >= transitionUntil) { shownFrame = target; repaint(); }
-}
+void LeverSwitch::tick (double) {}
 
 void LeverSwitch::paint (Graphics& g)
 {
     if (! strip.isValid()) return;
     const int fs = strip.getWidth();
-    const int row = 2 - shownFrame;                         // bande : haut / milieu / bas
+    const int row = up ? 0 : 1;                             // bande : bouton en haut (DRY) / en bas (MIDI)
     g.setImageResamplingQuality (Graphics::highResamplingQuality);
     g.drawImage (strip, 0, 0, getWidth(), getHeight(), 0, row * fs, fs, fs);
 }
@@ -109,8 +129,8 @@ void LeverSwitch::paint (Graphics& g)
 bool LeverSwitch::hitTest (int x, int y)
 {
     const auto c = getLocalBounds().toFloat().getCentre();
-    const float r = (float) getWidth() * (layout::togR / layout::togS);
-    return std::abs ((float) x - c.x) <= r * 1.15f && std::abs ((float) y - c.y) <= r * 1.6f;
+    const float k = (float) getWidth() / layout::togS;
+    return std::abs ((float) x - c.x) <= layout::togR * k * 1.15f && std::abs ((float) y - c.y) <= layout::togH * 0.5f * k;
 }
 
 void LeverSwitch::moveTo (bool nu)
@@ -123,7 +143,9 @@ void LeverSwitch::moveTo (bool nu)
 void LeverSwitch::mouseDown (const MouseEvent& e)
 {
     if (e.mods.isPopupMenu()) { if (onRightClick) onRightClick(); return; }
-    moveTo (! up);
+    // clic dans la moitie haute = DRY, moitie basse = MIDI ; clic sur la position deja prise = bascule
+    const bool wantUp = e.position.y < (float) getHeight() * 0.5f;
+    moveTo (wantUp != up ? wantUp : ! up);
 }
 
 void LeverSwitch::mouseWheelMove (const MouseEvent&, const MouseWheelDetails& w)
@@ -146,7 +168,9 @@ OmiAudioProcessorEditor::OmiAudioProcessorEditor (OmiAudioProcessor& p)
     labelFace = Typeface::createSystemTypefaceFor (BinaryData::PoppinsMedium_ttf, BinaryData::PoppinsMedium_ttfSize);
     boldFace  = Typeface::createSystemTypefaceFor (BinaryData::PoppinsBold_ttf, BinaryData::PoppinsBold_ttfSize);
     lightFace = Typeface::createSystemTypefaceFor (BinaryData::PoppinsLight_ttf, BinaryData::PoppinsLight_ttfSize);
-    if (auto xml = XmlDocument::parse (String::fromUTF8 (BinaryData::NineHandsLogoWhite_svg, BinaryData::NineHandsLogoWhite_svgSize)))
+    orbMed = Typeface::createSystemTypefaceFor (BinaryData::OrbitronMedium_ttf, BinaryData::OrbitronMedium_ttfSize);
+    orbReg = Typeface::createSystemTypefaceFor (BinaryData::OrbitronRegular_ttf, BinaryData::OrbitronRegular_ttfSize);
+    if (auto xml = XmlDocument::parse (String::fromUTF8 (BinaryData::NineHandsLogoBlack_svg, BinaryData::NineHandsLogoBlack_svgSize)))
         logo = Drawable::createFromSVG (*xml);
     buildPrint();
     menuLnf.f = { lightFace, labelFace, boldFace };
@@ -234,7 +258,10 @@ void OmiAudioProcessorEditor::rebuildCaches (float sc)
     if (w == cacheW && h == cacheH && std::abs (sc - cacheScale) < 0.01f && bgScaled.isValid()) return;
     cacheW = w; cacheH = h; cacheScale = sc;
     const int pw = roundToInt ((float) w * sc), ph = roundToInt ((float) h * sc);
-    bgScaled = (pw >= background.getWidth()) ? background : background.rescaled (pw, ph, Graphics::highResamplingQuality);
+    // fond toujours a la taille exacte en pixels physiques (une seule mise a l'echelle de qualite, pas d'etirement au dessin)
+    if (pw == background.getWidth() && ph == background.getHeight()) bgScaled = background;
+    else if (ph > background.getHeight())                            bgScaled = upscaleBilinear (background, pw, ph);
+    else                                                             bgScaled = background.rescaled (pw, ph, Graphics::highResamplingQuality);
     const float s = (float) h / baseH;
     const int gpx = roundToInt (layout::glowRect.getWidth() * s * sc);
     glowS = (gpx >= glow.getWidth()) ? glow : glow.rescaled (gpx, gpx, Graphics::highResamplingQuality);
@@ -252,7 +279,7 @@ void OmiAudioProcessorEditor::resized()
     const float fr = layout::fsS * 0.5f;
     footswitch.setBounds (scaled ({ layout::fsPos.x - fr, layout::fsPos.y - fr, fr * 2.0f, fr * 2.0f }));
     {
-        // carre en pixels entiers, centre sur la rondelle : les trois images tombent exactement au meme endroit
+        // carre en pixels entiers, centre sur la gorge : les deux images tombent exactement au meme endroit
         const float s = (float) getHeight() / baseH;
         const int side = roundToInt (layout::togS * s);
         dryToggle.setBounds (roundToInt (layout::togPos.x * s) - side / 2, roundToInt (layout::togPos.y * s) - side / 2, side, side);
@@ -457,11 +484,6 @@ void OmiAudioProcessorEditor::drawLed (Graphics& g)
     const float hs = layout::ledS * 0.5f;
     if (ledOn.isValid()) { g.setOpacity (level); g.drawImage (ledOn, { c.x - hs, c.y - hs, hs * 2.0f, hs * 2.0f }); }
     g.setOpacity (1.0f);
-    const float hr = 20.0f;
-    ColourGradient halo (accent.withAlpha (0.30f * level * glowAmt()), c.x, c.y, accent.withAlpha (0.0f), c.x + hr, c.y, true);
-    halo.addColour (0.4, accent.withAlpha (0.08f * level * glowAmt()));
-    g.setGradientFill (halo);
-    g.fillEllipse (c.x - hr, c.y - hr, hr * 2.0f, hr * 2.0f);
 }
 
 //==============================================================================
@@ -469,79 +491,81 @@ void OmiAudioProcessorEditor::drawLed (Graphics& g)
 //==============================================================================
 void OmiAudioProcessorEditor::drawScreen (Graphics& g)
 {
-    const auto r = layout::screenRect;
+    // grand ecran (design v2) : vitre noire dans le fond ; contenu en Orbitron
+    const auto r = layout::screenRect.reduced (layout::screenCorner * 0.55f, 14.0f);
     const auto& s = drawnScr;
-    const float pad = 16.0f;
-    auto font = [this] (int w, float h) { return Font (FontOptions (w == 1 ? boldFace : (w == 2 ? lightFace : labelFace)).withHeight (h)); };
+    auto font = [this] (bool med, float h) { return Font (FontOptions (med ? orbMed : orbReg).withHeight (h)); };
     auto text = [&] (const String& t, float x, float y, float w, float h, Justification j, Colour c, Font f)
     { g.setColour (c); g.setFont (f); g.drawText (t, Rectangle<float> (x, y, w, h), j, false); };
 
     const float half = r.getWidth() * 0.5f;
     const Colour off = scrDim;
-    text ("IN", r.getX() + pad, r.getY() + 8.0f, 60.0f, 16.0f, Justification::centredLeft, scrGrey, font (0, 15.0f));
+    const float y0 = r.getY();
+    text ("IN", r.getX(), y0, 60.0f, 18.0f, Justification::centredLeft, scrGrey, font (true, 14.0f));
     if (s.dryOff)      // son de la guitare coupe : seul l'instrument est entendu
-        text ("DRY OFF", r.getX() + pad + 30.0f, r.getY() + 8.0f, 120.0f, 16.0f, Justification::centredLeft, Colour (0xffffb45a), font (0, 15.0f));
-    text ("MIDI OUT  CH " + String (s.chan), r.getRight() - pad - 200.0f, r.getY() + 8.0f, 200.0f, 16.0f, Justification::centredRight, scrGrey, font (0, 15.0f));
+        text ("DRY OFF", r.getX() + 34.0f, y0, 130.0f, 18.0f, Justification::centredLeft, Colour (0xffffb45a), font (true, 14.0f));
+    text ("MIDI OUT  CH " + String (s.chan), r.getRight() - 220.0f, y0, 220.0f, 18.0f, Justification::centredRight, scrGrey, font (true, 14.0f));
 
     // note jouee
+    const float ny = y0 + 30.0f;
     if (s.inNote >= 0)
     {
         static const char* nn[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
         const String name (nn[s.inNote % 12]);
-        const auto big = font (1, 70.0f);
+        const auto big = font (true, 86.0f);
         const float nw = GlyphArrangement::getStringWidth (big, name);
-        text (name, r.getX() + pad, r.getY() + 28.0f, nw + 4.0f, 72.0f, Justification::centredLeft, scrWhite, big);
-        text (String (s.inNote / 12 - 1), r.getX() + pad + nw + 4.0f, r.getY() + 64.0f, 40.0f, 32.0f, Justification::centredLeft, scrWhite, font (0, 30.0f));
-        text ((s.cents > 0 ? "+" : "") + String (s.cents) + " ct", r.getX() + pad + nw + 30.0f, r.getY() + 34.0f, 90.0f, 18.0f, Justification::centredLeft, scrCyan, font (0, 16.0f));
+        text (name, r.getX() - 2.0f, ny, nw + 4.0f, 96.0f, Justification::centredLeft, scrWhite, big);
+        text (String (s.inNote / 12 - 1), r.getX() + nw + 6.0f, ny + 48.0f, 50.0f, 40.0f, Justification::centredLeft, scrWhite, font (true, 34.0f));
+        text ((s.cents > 0 ? "+" : "") + String (s.cents) + " ct", r.getX() + nw + 8.0f, ny + 10.0f, 100.0f, 20.0f, Justification::centredLeft, scrCyan, font (false, 16.0f));
     }
     else
-        text ("--", r.getX() + pad, r.getY() + 28.0f, 120.0f, 72.0f, Justification::centredLeft, off, font (1, 70.0f));
+        text ("--", r.getX(), ny, 140.0f, 96.0f, Justification::centredLeft, off, font (true, 86.0f));
 
     // fleche
     {
-        const float ax = r.getX() + half + 8.0f, ay = r.getY() + 64.0f;
-        Path p; p.startNewSubPath (ax - 18.0f, ay); p.lineTo (ax + 16.0f, ay);
-        p.startNewSubPath (ax + 8.0f, ay - 8.0f); p.lineTo (ax + 17.0f, ay); p.lineTo (ax + 8.0f, ay + 8.0f);
+        const float ax = r.getX() + half + 4.0f, ay = ny + 50.0f;
+        Path p; p.startNewSubPath (ax - 20.0f, ay); p.lineTo (ax + 18.0f, ay);
+        p.startNewSubPath (ax + 9.0f, ay - 9.0f); p.lineTo (ax + 19.0f, ay); p.lineTo (ax + 9.0f, ay + 9.0f);
         g.setColour (s.outNote >= 0 ? scrGrey : off);
-        g.strokePath (p, PathStrokeType (2.0f, PathStrokeType::curved, PathStrokeType::rounded));
+        g.strokePath (p, PathStrokeType (2.2f, PathStrokeType::curved, PathStrokeType::rounded));
     }
 
     // note MIDI envoyee
-    const float rx = r.getRight() - pad;
+    const float rx = r.getRight();
     if (! s.active)
-        text ("BYPASS", rx - 200.0f, r.getY() + 38.0f, 200.0f, 44.0f, Justification::centredRight, scrGrey, font (1, 34.0f));
+        text ("BYPASS", rx - 200.0f, ny + 16.0f, 200.0f, 56.0f, Justification::centredRight, scrGrey, font (true, 38.0f));
     else if (s.outNote >= 0)
     {
-        text (OmiAudioProcessor::noteName (s.outNote), rx - 200.0f, r.getY() + 36.0f, 200.0f, 48.0f, Justification::centredRight, scrCyan, font (1, 46.0f));
-        text ("NOTE " + String (s.outNote) + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 VEL ")) + String (s.vel), rx - 240.0f, r.getY() + 82.0f, 240.0f, 18.0f, Justification::centredRight, scrGrey, font (0, 15.0f));
+        text (OmiAudioProcessor::noteName (s.outNote), rx - 210.0f, ny + 6.0f, 210.0f, 64.0f, Justification::centredRight, scrCyan, font (true, 54.0f));
+        text ("NOTE " + String (s.outNote) + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 VEL ")) + String (s.vel), rx - 240.0f, ny + 74.0f, 240.0f, 18.0f, Justification::centredRight, scrGrey, font (false, 14.0f));
     }
     else
-        text ("--", rx - 200.0f, r.getY() + 36.0f, 200.0f, 48.0f, Justification::centredRight, off, font (1, 46.0f));
+        text ("--", rx - 210.0f, ny + 6.0f, 210.0f, 64.0f, Justification::centredRight, off, font (true, 54.0f));
     text (OmiAudioProcessor::bendSemis (s.bendIdx) == 0 ? String ("CHROMA") : juce::String (juce::CharPointer_UTF8 ("BEND \xc2\xb1")) + String (OmiAudioProcessor::bendSemis (s.bendIdx)),
-          rx - 200.0f, r.getY() + 100.0f, 200.0f, 18.0f, Justification::centredRight, scrGrey, font (0, 15.0f));
+          rx - 210.0f, ny + 96.0f, 210.0f, 18.0f, Justification::centredRight, scrGrey, font (false, 14.0f));
 
     // justesse : point sur une echelle de -50 a +50 cents
     {
-        const float x0 = r.getX() + pad, x1 = r.getX() + half - 20.0f, y = r.getY() + 108.0f;
+        const float x0 = r.getX(), x1 = r.getX() + half - 24.0f, y = ny + 118.0f;
         g.setColour (Colour (0xff3c5069));
-        g.drawLine (x0, y, x1, y, 1.2f);
+        g.drawLine (x0, y, x1, y, 1.3f);
         for (int k = -4; k <= 4; ++k)
         {
-            const float xk = (x0 + x1) * 0.5f + (float) k * (x1 - x0) / 8.0f, hk = k == 0 ? 5.0f : 3.0f;
+            const float xk = (x0 + x1) * 0.5f + (float) k * (x1 - x0) / 8.0f, hk = k == 0 ? 6.0f : 3.5f;
             g.setColour (Colour (0xff50647d));
-            g.drawLine (xk, y - hk, xk, y + hk, 1.2f);
+            g.drawLine (xk, y - hk, xk, y + hk, 1.3f);
         }
         if (s.inNote >= 0)
         {
             const float xm = (x0 + x1) * 0.5f + jlimit (-1.0f, 1.0f, (float) s.cents / 50.0f) * (x1 - x0) * 0.5f;
             g.setColour (std::abs (s.cents) <= 5 ? scrCyan : Colour (0xffffb45a));
-            g.fillEllipse (xm - 4.0f, y - 4.0f, 8.0f, 8.0f);
+            g.fillEllipse (xm - 4.5f, y - 4.5f, 9.0f, 9.0f);
         }
     }
 
     // vu-metre d'entree (40 segments) + repere du seuil SENS
     {
-        const float x0 = r.getX() + pad, x1 = r.getRight() - pad, y = r.getBottom() - 22.0f;
+        const float x0 = r.getX(), x1 = r.getRight(), y = r.getBottom() - 9.0f;
         const int segs = 40;
         const float sw = (x1 - x0) / (float) segs;
         for (int i = 0; i < segs; ++i)
@@ -551,14 +575,14 @@ void OmiAudioProcessorEditor::drawScreen (Graphics& g)
             if (lit && i >= 36) c = Colour (0xffff8c5a);
             if (lit && s.level > 0 && (float) i < (float) segs * ((float) s.sens - meterLo) / (meterHi - meterLo)) c = c.withMultipliedAlpha (0.45f);   // sous le seuil : pas de note
             g.setColour (c);
-            g.fillRect (x0 + (float) i * sw, y - 5.0f, sw - 2.2f, 10.0f);
+            g.fillRect (x0 + (float) i * sw, y - 6.0f, sw - 2.4f, 12.0f);
         }
         const float xt = x0 + jlimit (0.0f, 1.0f, ((float) s.sens - meterLo) / (meterHi - meterLo)) * (x1 - x0);
-        Path tri; tri.addTriangle (xt, y - 8.0f, xt - 5.0f, y - 15.0f, xt + 5.0f, y - 15.0f);
+        Path tri; tri.addTriangle (xt, y - 9.0f, xt - 5.5f, y - 17.0f, xt + 5.5f, y - 17.0f);
         g.setColour (scrWhite);
         g.fillPath (tri);
-        g.drawLine (xt, y - 8.0f, xt, y + 8.0f, 1.6f);
-        text ("SENS", xt + 9.0f, y - 22.0f, 60.0f, 14.0f, Justification::centredLeft, scrWhite, font (0, 12.0f));
+        g.drawLine (xt, y - 9.0f, xt, y + 9.0f, 1.6f);
+        text ("SENS", xt + 9.0f, y - 26.0f, 70.0f, 16.0f, Justification::centredLeft, scrWhite, font (true, 12.0f));
     }
 }
 
@@ -567,12 +591,9 @@ void OmiAudioProcessorEditor::drawPresetBar (Graphics& g)
 {
     const auto r = presetRect;
     const float a = statusAlpha, pa = 1.0f - a;
-    g.setColour (panel.withAlpha (0.84f));
-    g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
-    g.setColour (Colour (0xff5a7090).withAlpha ((hoverZone != 0 ? 0.75f : 0.45f) * pa + 0.55f * a));
-    g.drawRoundedRectangle (r.reduced (0.6f), r.getHeight() * 0.5f, 1.0f);
-    const Font f (FontOptions (labelFace).withHeight (layout::presetFont));
-    const float aw = 34.0f;
+    // petit ecran : la vitre noire est dans le fond (decoupe du boitier)
+    const Font f (FontOptions (orbReg).withHeight (layout::presetFont));
+    const float aw = r.getHeight() * 0.95f;
     if (pa > 0.0f)
     {
         auto arrow = [&] (Rectangle<float> ar, bool left, bool hot)
@@ -586,13 +607,13 @@ void OmiAudioProcessorEditor::drawPresetBar (Graphics& g)
         arrow (r.withWidth (aw), true, hoverZone == 1);
         arrow (r.withTrimmedLeft (r.getWidth() - aw), false, hoverZone == 3);
         g.setFont (f);
-        g.setColour ((midiFlash > 0 ? scrCyan : Colour (0xffecf0f6)).withAlpha ((hoverZone == 2 ? 1.0f : 0.92f) * pa));
+        g.setColour ((midiFlash > 0 ? scrCyan : scrWhite).withAlpha ((hoverZone == 2 ? 1.0f : 0.90f) * pa));
         g.drawFittedText (lastPreset, r.reduced (aw, 0.0f).toNearestInt(), Justification::centred, 1, 0.6f);
     }
     if (a > 0.0f)
     {
         g.setFont (f);
-        g.setColour ((midiFlash > 0 ? scrCyan : Colour (0xffecf0f6)).withAlpha (a));
+        g.setColour ((midiFlash > 0 ? scrCyan : scrWhite).withAlpha (a));
         g.drawFittedText (lastLine1.toUpperCase().replace (" DB", " dB"), r.reduced (r.getHeight() * 0.5f, 0.0f).toNearestInt(), Justification::centred, 1, 0.6f);
     }
 }
@@ -602,42 +623,20 @@ void OmiAudioProcessorEditor::drawPresetBar (Graphics& g)
 //==============================================================================
 void OmiAudioProcessorEditor::buildPrint()
 {
-    printPath.clear();
-    for (const auto& t : layout::texts)
-    {
-        const Typeface::Ptr face = t.font == 1 ? boldFace : (t.font == 2 ? lightFace : labelFace);
-        const Font font (FontOptions (face).withPointHeight (t.em));
-        const String s (t.s);
-        float total = 0.0f;
-        for (int i = 0; i < s.length(); ++i)
-            total += GlyphArrangement::getStringWidth (font, String::charToString (s[i])) + (i > 0 ? t.track : 0.0f);
-        const float base = (font.getAscent() - font.getDescent()) * 0.5f;
-        GlyphArrangement ga;
-        float x = -total * 0.5f;
-        for (int i = 0; i < s.length(); ++i)
-        {
-            const String ch = String::charToString (s[i]);
-            ga.addLineOfText (font, ch, x, base);
-            x += GlyphArrangement::getStringWidth (font, ch) + t.track;
-        }
-        Path p; ga.createPath (p);
-        p.applyTransform (AffineTransform::rotation (-t.rot * MathConstants<float>::pi / 180.0f).translated (t.x, t.y));
-        printPath.addPath (p);
-    }
+    printPath.clear(); greyPath.clear();
+    for (auto* d : layout::printBlack) printPath.addPath (Drawable::parseSVGPath (d));
     for (const auto& d : layout::dots)  printPath.addEllipse (d.x - d.r, d.y - d.r, d.r * 2.0f, d.r * 2.0f);
-    for (const auto& r : layout::rules) printPath.addRectangle (r);
+    for (auto* d : layout::printGrey)  greyPath.addPath (Drawable::parseSVGPath (d));
 }
 
 void OmiAudioProcessorEditor::drawPrint (Graphics& g)
 {
-    g.setColour (inkCream);
+    g.setColour (Colour (0xff424243));          // logo OMI / AUDIO 2 MIDI
+    g.fillPath (greyPath);
+    g.setColour (Colours::black);               // textes, graduations
     g.fillPath (printPath);
     if (logo != nullptr)
-    {
-        const auto vb = logo->getDrawableBounds();
-        const float w = layout::logoW, h = w * vb.getHeight() / jmax (1.0f, vb.getWidth());
-        logo->drawWithin (g, { layout::logoPos.x - w * 0.5f, layout::logoPos.y - h * 0.5f, w, h }, RectanglePlacement::centred, 0.92f);
-    }
+        logo->drawWithin (g, layout::logoRect, RectanglePlacement::centred, 1.0f);
 }
 
 void OmiAudioProcessorEditor::paint (Graphics& g)
@@ -646,7 +645,7 @@ void OmiAudioProcessorEditor::paint (Graphics& g)
     repaintAskedMs = 0.0;
     g.fillAll (Colour (0xff111112));
     const Image& bg = bgScaled.isValid() ? bgScaled : background;
-    g.setImageResamplingQuality (&bg == &background ? Graphics::highResamplingQuality : Graphics::lowResamplingQuality);
+    g.setImageResamplingQuality (&bg == &background ? Graphics::highResamplingQuality : Graphics::mediumResamplingQuality);   // bilineaire : jamais de trame si la taille ne tombe pas pile
     if (bg.isValid()) g.drawImage (bg, getLocalBounds().toFloat());
 
     const float s = (float) getHeight() / baseH;
@@ -664,8 +663,8 @@ void OmiAudioProcessorEditor::paint (Graphics& g)
 static int presetZoneAt (Point<float> p)
 {
     if (! presetRect.contains (p)) return 0;
-    if (p.x < presetRect.getX() + 34.0f) return 1;
-    if (p.x > presetRect.getRight() - 34.0f) return 3;
+    if (p.x < presetRect.getX() + presetRect.getHeight()) return 1;
+    if (p.x > presetRect.getRight() - presetRect.getHeight()) return 3;
     return 2;
 }
 

@@ -103,6 +103,7 @@ et les autres messages passent vers l'instrument suivant. Program Change 1-10 = 
 
 ## Versions
 
+- **1.0.9** (18 nov. 2026) : nouveau design (boîtier gris clair à bevel plat, grand écran encastré, petit écran des presets, diode bleue, inverseur DRY / MIDI à bouton, textes Orbitron, logo OMI audio2midi), lumière en haut à gauche.
 - **1.0.8** (16 nov. 2026) : latence réduite de 3 à 5 ms sans perte de justesse : l'attaque est aussi reconnue à sa brillance (aigus du médiator), une corde grave jouée après une plus aiguë part tout de suite ; un bruit de frette ne relance pas la note.
 - **1.0.7** (16 nov. 2026) : inverseur DRY / MIDI sur la pédale (photos du kit) ; choix de l'instrument dans la fenêtre d'Omi (liste des instruments installés par format et fabricant) au lieu de la fenêtre FX de REAPER ; piste créée en piste MIDI (entrée MIDI, tous canaux).
 - **1.0.6** (16 nov. 2026) : après la création de la piste, la fenêtre de l'instrument s'ouvre seule (plus la chaîne FX) ; son de la guitare (dry) coupable depuis l'écran ou par MIDI Learn (*Dry guitar*), indication DRY OFF.
